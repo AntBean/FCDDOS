@@ -66,11 +66,12 @@ apacheLogLines = apacheOutStream.readlines()
 if args.random_shuffle:
     random.shuffle(apacheLogLines)
 #get the number of lines for train && test
-trainLinesCount = int((len(apacheLogLines) * args.train_percentage)/100)
+trainLinesCount = int(float(str(round(float(len(apacheLogLines) *\
+                        args.train_percentage)/100))))
 testLinesCount = int((len(apacheLogLines)-trainLinesCount))
 #get the train & test lines
 trainLines = apacheLogLines[0:trainLinesCount]
-testLines = apacheLogLines[trainLinesCount+1:]
+testLines = apacheLogLines[trainLinesCount:]
 #write the train & test lines
 trainOutStream.writelines(trainLines)
 testOutStream.writelines(testLines)

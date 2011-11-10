@@ -1,4 +1,8 @@
-#Module for mixing the attacker traffic & User traffic
+"""
+    Module for mixing the attacker parameter with train & test parameter
+    Output will be train & test files in  arff format with attacker parameter 
+    mixed in both
+"""
 import string
 import datetime
 import time
@@ -19,47 +23,69 @@ def parseCmdArgs():
                 add_help=False)
     parser.add_argument("-h", "--help", action="help",
             help="Show this help message and exit")
-    parser.add_argument("-u", "--user-file",
-            help="File container user parameters")
-    parser.add_argument("-a", "--attacker-file",
-            help="File container attacker parameters")
-    parser.add_argument("-o", "--outfile", default="weka.arff",
-            help="File to mixed parameters for user & attacker")
-    parser.add_argument("-f", "--arff-format",
+    parser.add_argument("-T", "--train-file",required = True,
+            help="File containing train parameters")
+    parser.add_argument("-t", "--test-file",required = True,
+            help="File containing test parameters")
+    parser.add_argument("-a", "--attacker-file",required = True,
+            help="File containing attacker parameters")
+    parser.add_argument("-f", "--arff-format",required = True,
             help="arff format file")
     args = parser.parse_args()
     return args
 
 #parse commandlist arguments    
 args = parseCmdArgs()
-outputStream = None
+trainInStream = None
+testInStream = None
+arffInStream = None
+attackerInStream = None
+#open input files
 try:
-    outputStream = open(args.outfile,"w")
-except:
-    # happend when the outfile is specified incorrectly 
-    # or not specified at all
-    outputStream = sys.stdout
-
-try:
-    userFile = open(args.user_file,"r")
+    trainInStream = open(args.train_file,"r")
 except IOError:
     print args.user_file,"file open error"
+    exit(0)
 try:
-    attackerFile = open(args.attacker_file,"r")
+    testInStream = open(args.test_file,"r")
+except IOError:
+    print args.test_file,"file open error"
+    exit(0)
+try:
+    attackerInStream = open(args.attacker_file,"r")
 except IOError:
     print args.attacker_file,"file open error"
-
+    exit(0)
 try:
-    arffFormat = open(args.arff_format,"r")
+    arffInStream = open(args.arff_format,"r")
 except IOError:
     print args.arff_format,"file open error"
+    exit(0)
+#open output files
+train_out_file = args.train_file+".arff"
+test_out_file = args.test_file+".arff"
+trainOutStream = None
+testOutStream = None
+try:
+    trainOutStream = open(train_out_file,"w")
+except IOError:
+    print train_out_file,"file open error"
+    exit(0)
+try:
+    testOutStream = open(test_out_file,"w")
+except IOError:
+    print test_out_file,"file open error"
+    exit(0)
 
-arffLines = arffFormat.readlines()
-userLines = userFile.readlines()
-attackerLines = attackerFile.readlines()
-mixedLines = userLines + attackerLines
-#shuffle lines to mix the parameters
-random.shuffle(mixedLines)
+
+
+arffLines = arffInStream.readlines()
+trainInLines = trainInStream.readlines()
+testInLines = testInStream.readlines()
+attackerLines = attackerInStream.readlines()
+
 #append the data lines after arff format lines
-finalLines = arffLines+mixedLines
-outputStream.writelines(finalLines)
+trainOutLines = arffLines+trainInLines+attackerLines
+testOutLines = arffLines+testInLines+attackerLines
+trainOutStream.writelines(trainOutLines)
+testOutStream.writelines(testOutLines)

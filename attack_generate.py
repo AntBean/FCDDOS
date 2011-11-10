@@ -81,11 +81,11 @@ def getNPraForOthers(N,P,r,a):
     """
     N_other =1
     P_other = 3600
-    totNumReq = int(N * r) 
-    r_other = totNumReq/N_other
+    R = int(N * r) 
+    r_other = R/N_other
     a_other = float(N*(r-1)*a +(N-1)*P)/(N*(r-1)+(N-1))
     return [N_other,P_other,r_other,a_other,N_other,P_other,r_other,a_other,\
-                N_other,P_other,r_other,a_other]
+                N_other,P_other,r_other,a_other,R]
     
 
 
