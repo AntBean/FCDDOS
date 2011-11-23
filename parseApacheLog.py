@@ -326,8 +326,8 @@ def parseCmdArgs():
             help="Show this help message and exit")
     parser.add_argument("-i", "--apache-log-file", required=True,
             help="Apache Log File")
-    parser.add_argument("-o", "--outfile", default=None,
-            help="File  to dump to dump output data")
+    parser.add_argument("-o", "--outdir", default=None, required = None,
+            help="Output Directory")
     parser.add_argument("-s", "--searching-session", type=int, default=10,
             help="Pause interval for Searching Session")
     parser.add_argument("-b", "--browsing-session", type=int, default=60,
@@ -348,13 +348,16 @@ def parseCmdArgs():
 
 #parse commandlist arguments    
 args = parseCmdArgs()
+outFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
+                                        "_p"
+            )
 outputStream = None
 try:
-    outputStream = open(args.outfile,"w")
+    outputStream = open(outFname,"w")
 except:
-    # happend when the outfile is specified incorrectly 
-    # or not specified at all
-    outputStream = sys.stdout
+    print "Error Opening output file: ",outFname
+    exit(0)
+    
     
 # open a temporary file for keeping data
 #tempStream = open("tempfile","w")
