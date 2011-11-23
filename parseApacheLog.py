@@ -1,9 +1,13 @@
 """
 Assumptions:
-1. if there is only one session of a sessiontype is present for user
-    then we will use average session puase as 1 hour
-2. if there is only one request in a session then average gap for that
-    session set to 3600
+    1. if there is only one session of a particular sessiontype is present for user then we will
+        use average session pause(parameter P) for that session type as 1 hour
+    2. if there is only one request in a session then we don't add gap data(parameter a)
+        for that session & if we are not able to find any gap for a session types,     
+        then average gap for that session type is set to 1 hour
+    3. One entry in the output file contains the parameter for a user
+        with request up-to only 1 hour. if there are requests even after 1
+        hour from the same user then parameters will calculated for them in new entry.
 """
 from pyparsing import alphas,nums, dblQuotedString, Combine, Word, Group, \
                         delimitedList, Suppress, removeQuotes
@@ -157,10 +161,7 @@ def calculate_P(sessionType):
         # one session & we need atleast two session 
         # to calculate pause
         # we will set the pause value to be 1 hour in case of only 1 session
-        pauseTime = datetime.timedelta(prevSesEndTime.days,     \
-                                            prevSesEndTime.seconds+3600,   \
-                                            prevSesEndTime.microseconds)  
-        avgPauseList.append(pauseTime.total_seconds())
+        avgPauseList.append(3600)
     #print avgPauseList     
     # return average pause time
     #print float(sum(avgPauseList))/len(avgPauseList)
@@ -200,6 +201,8 @@ def calculate_a(sessionType):
     gapList = []
     for session in sessionType:
         prevReq = None
+        #only 1 request set gap to 3600
+        # dont add gap for this session
         if len(session) > 1:
             for request in session:
                 if prevReq is None:
@@ -208,23 +211,13 @@ def calculate_a(sessionType):
                 gap = float((request-prevReq).total_seconds())
                 gapList.append(gap)
                 prevReq = request
-        elif len(session) == 1:
-                #only 1 request set gap to 3600
-                request = session[0]
-                #gap = float((request-request).total_seconds())
-                # we will set the gap value to be 1 hour in case of only 1 session
-                diff = datetime.timedelta(request.days,     \
-                                            request.seconds+3600,   \
-                                            request.microseconds)  
-                gap = diff.total_seconds()
-                gapList.append(gap)
-            
     if not gapList:
         # generally happens when the session type has only 
         # one session & that session has only one request
-        indntlevel-=1
-        return None
+        # set the average gap to 3600 for this session type
+        gapList.append(3600)
     #print gapList
+        
     # return average gap between request in 
     # sessions for this session type
     #print float(sum(gapList))/len(gapList)
@@ -261,7 +254,7 @@ def calculate16Parameters(sessionTypes):
         result = calculateNPra(sessionTypes[j])
         #print "i=", i
         if result is None:
-            print len(sessionTypes[j])
+            #print len(sessionTypes[j])
             indntlevel-=1
             return None
         paramList.extend(result)
@@ -274,6 +267,54 @@ def calculate16Parameters(sessionTypes):
     
             
     
+#evaluate parameters & write to the outputStream
+def evaluate(sessionTypes,R,outputStream,key):
+    #print len(sessionTypes[0]),len(sessionTypes[1]),\
+    #        len(sessionTypes[2]),len(sessionTypes[3])
+    """
+    print len(sessionTypes[3])
+    for sesn in sessionTypes[3]:
+        print sesn
+    print sessionTypes[3][0]
+    """
+    # calculate parameters a,N,P,r,R
+    NPraList = calculate16Parameters(sessionTypes)
+    # if parameters list is empty or None
+    # don't add this output and continue to
+    # next table entry
+    if not NPraList:
+        return 0
+    #print logHashTable[key]
+
+    # output data
+    #print "Final R", R
+    outputData = NPraList
+    outputData.append(R)
+    # convert list to comma seperated string
+    outputString = ",".join([str(round(x,2)) for x in outputData])
+    #outputString += "," 
+    #outputString += str(key) 
+    attckr_rgx = re.compile("^1\.1\.\d+\.\d+")
+    isattacker = attckr_rgx.search(str(key),0)
+    if isattacker:
+        outputString += ",ATTACKER\n" 
+    else:
+        outputString += ",USER\n" 
+    """
+    if str(key) == "1.1.1.1": 
+        outputString += ",ATTACKER\n" 
+    else:
+        outputString += ",USER\n" 
+    """
+    """
+    if args.is_attacker:
+        outputString += ",ATTACKER\n" 
+    else:
+        outputString += ",USER\n" 
+    """    
+    outputStream.write(outputString)
+    #print outputData
+    return 1
 
 # parse commandline arguments
 def parseCmdArgs():
@@ -295,6 +336,8 @@ def parseCmdArgs():
             help="Pause interval for Relaxed Session")
     parser.add_argument("-l", "--long-session", type=int, default=600,
             help="Pause interval for long Session")
+    parser.add_argument("-t", "--max-full-session-time", type=int, default=3600,
+            help="Maximum time for the complete 1 user session")
     parser.add_argument("-a", "--is-attacker", action = 'store_true', \
             default=False,                                      \
             help="is specified only when the input trace is attack")
@@ -314,7 +357,8 @@ except:
     outputStream = sys.stdout
     
 # open a temporary file for keeping data
-tempStream = open("tempfile","w")
+#tempStream = open("tempfile","w")
+tempStream = os.tmpfile()
 # a hash table to keep parsed apache log line as entries 
 # with client ip address as the key 
 # each hash table enty is a list of request 
@@ -399,6 +443,8 @@ for key in logHashTable.keys():
 
     prevReqTs = None
     startTs = None
+    # R is total number of request for this user
+    R = 0
     #print key
     for request in logHashTable[key]:
         #print "  ",request
@@ -407,7 +453,23 @@ for key in logHashTable.keys():
         if prevReqTs is None:
             prevReqTs = request[0]
             startTs = request[0]
-            
+        # check if the request[0]-startTs > 3600, if yes we assume then user is using 
+        # the system second time & create a seprate entry in the parsed file for this
+        # new session
+        totalSesTime = request[0]-startTs
+        if  totalSesTime.total_seconds() > args.max_full_session_time:
+            #calculate paramerter for request added till now, write them output
+            evaluate(sessionTypes,R,outputStream,key)
+            #reintilize sessionTypes & variables
+            sessionTypes = [[],[],[],[]]
+            sessionType0 = []
+            sessionType1 = []
+            sessionType2 = []
+            sessionType3 = []
+
+            prevReqTs = request[0]
+            startTs = request[0]
+            R = 1
     
         diff = request[0] - prevReqTs
         #if diff.total_seconds() > 600:
@@ -427,6 +489,7 @@ for key in logHashTable.keys():
         if diff.total_seconds() > args.searching_session:
             sessionTypes[0].append(sessionType0)
             sessionType0 = []
+        R+=1
 
         #seconds = (request.timestamp-startTs).seconds+20
         seconds = (request[0]-startTs)
@@ -448,49 +511,4 @@ for key in logHashTable.keys():
     sessionTypes[2].append(sessionType2)
     sessionTypes[1].append(sessionType1)
     sessionTypes[0].append(sessionType0)
-    #print len(sessionTypes[0]),len(sessionTypes[1]),\
-    #        len(sessionTypes[2]),len(sessionTypes[3])
-    """
-    print len(sessionTypes[3])
-    for sesn in sessionTypes[3]:
-        print sesn
-    print sessionTypes[3][0]
-    """
-    # calculate parameters a,N,P,r,R
-    NPraList = calculate16Parameters(sessionTypes)
-    # if parameters list is empty or None
-    # don't add this output and continue to
-    # next table entry
-    if not NPraList:
-        continue
-    # R is total number of request for this user
-    R = len(logHashTable[key])
-    #print logHashTable[key]
-
-    # output data
-    #print "Final R", R
-    outputData = NPraList
-    outputData.append(R)
-    # convert list to comma seperated string
-    outputString = ",".join([str(round(x,1)) for x in outputData])
-    attckr_rgx = re.compile("^1\.1\.\d+\.\d+")
-    isattacker = attckr_rgx.search(str(key),0)
-    if isattacker:
-        outputString += ",ATTACKER\n" 
-    else:
-        outputString += ",USER\n" 
-    """
-    if str(key) == "1.1.1.1": 
-        outputString += ",ATTACKER\n" 
-    else:
-        outputString += ",USER\n" 
-    """
-    """
-    if args.is_attacker:
-        outputString += ",ATTACKER\n" 
-    else:
-        outputString += ",USER\n" 
-    """    
-    outputStream.write(outputString)
-    #print outputData
-    
+    evaluate(sessionTypes,R,outputStream,key)

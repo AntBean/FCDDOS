@@ -147,7 +147,7 @@ while i < args.num_attacker:
     parameters.extend(NPra_Others)
     #write the parameters
     # convert list to comma seperated string
-    outputString = ",".join([str(round(x,1)) for x in parameters])
+    outputString = ",".join([str(round(x,2)) for x in parameters])
     outputString += ",ATTACKER\n" 
     outputStream.write(outputString)
     i+=1
