@@ -150,6 +150,8 @@ def calculate_P(sessionType):
         else:
             # now calculate pause time
             pauseTime = curSesStartTime-prevSesEndTime
+            if pauseTime.total_seconds() < 0:
+                return None
             avgPauseList.append(pauseTime.total_seconds())
             #print avgPauseList,curSesStartTime,prevSesEndTime 
             #print session
@@ -209,6 +211,8 @@ def calculate_a(sessionType):
                     prevReq = request
                     continue
                 gap = float((request-prevReq).total_seconds())
+                if gap < 0:
+                    return None
                 gapList.append(gap)
                 prevReq = request
     if not gapList:
@@ -222,6 +226,8 @@ def calculate_a(sessionType):
     # sessions for this session type
     #print float(sum(gapList))/len(gapList)
     indntlevel-=1
+    if sum(gapList) < 0:
+        print "mal:",gapList
     return float(sum(gapList))/len(gapList)
 
     
@@ -284,6 +290,9 @@ def evaluate(sessionTypes,R,outputStream,key):
     # next table entry
     if not NPraList:
         return 0
+    for param in NPraList:
+        if param < 0:
+            print "mal ip",key;
     #print logHashTable[key]
 
     # output data
@@ -349,7 +358,7 @@ def parseCmdArgs():
 #parse commandlist arguments    
 args = parseCmdArgs()
 outFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
-                                        "_p"
+                                        "_u"
             )
 outputStream = None
 try:
