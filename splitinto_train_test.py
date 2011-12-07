@@ -36,9 +36,9 @@ def parseCmdArgs():
 args = parseCmdArgs()
 #create the train & test filename
 trainFname = os.path.join(args.outdir,os.path.basename(args.apache_parsed_file)\
-                            +"_Train")
+                            +"_tr")
 testFname = os.path.join(args.outdir,os.path.basename(args.apache_parsed_file)\
-                            +"_Test")
+                            +"_te")
 print "trainfile: ", trainFname
 print "testfile: ", testFname
 trainOutStream = None

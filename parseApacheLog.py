@@ -20,8 +20,21 @@ import pyparsing
 import argparse
 import os, sys
 import re
+import pickle
 indnt = "  "
 indntlevel = 0
+
+#attacker parameters
+TotalNumberUser = 0
+TotalNumberReq = 0
+minN1 = None
+maxN1 = None
+minP1 = None
+maxP1 = None
+minr1 = None
+maxr1 = None
+mina1 = None
+maxa1 = None
 
 class timezone(datetime.tzinfo):
     def __init__(self, name="+0000"):
@@ -272,7 +285,38 @@ def calculate16Parameters(sessionTypes):
     return paramList
     
             
-    
+def setAttackerParameters(NPraList,R):
+    #attacker parameters
+    global TotalNumberUser
+    global TotalNumberReq
+    global minN1
+    global maxN1
+    global minP1
+    global maxP1
+    global minr1
+    global maxr1
+    global mina1
+    global maxa1
+
+    if (minN1 is None) or (NPraList[0] < minN1):
+        minN1 = NPraList[0]
+    if (maxN1 is None) or (NPraList[0] > maxN1):
+        maxN1 = NPraList[0]
+    if (minP1 is None) or (NPraList[1] < minP1):
+        minP1 = NPraList[1]
+    if (maxP1 is None) or (NPraList[1] > maxP1):
+        maxP1 = NPraList[1]
+    if (minr1 is None) or (NPraList[2] < minr1):
+        minr1 = NPraList[2]
+    if (maxr1 is None) or (NPraList[2] > maxr1):
+        maxr1 = NPraList[2]
+    if (maxa1 is None) or (NPraList[3] < mina1):
+        mina1 = NPraList[3]
+    if (maxa1 is None) or (NPraList[3] > maxa1):
+        maxa1 = NPraList[3]
+    TotalNumberUser += 1
+    TotalNumberReq += R
+
 #evaluate parameters & write to the outputStream
 def evaluate(sessionTypes,R,outputStream,key):
     #print len(sessionTypes[0]),len(sessionTypes[1]),\
@@ -294,7 +338,8 @@ def evaluate(sessionTypes,R,outputStream,key):
         if param < 0:
             print "mal ip",key;
     #print logHashTable[key]
-
+    #set attacker data
+    setAttackerParameters(NPraList,R)
     # output data
     #print "Final R", R
     outputData = NPraList
@@ -335,7 +380,7 @@ def parseCmdArgs():
             help="Show this help message and exit")
     parser.add_argument("-i", "--apache-log-file", required=True,
             help="Apache Log File")
-    parser.add_argument("-o", "--outdir", default=None, required = None,
+    parser.add_argument("-o", "--outdir", default=None, required = True,
             help="Output Directory")
     parser.add_argument("-s", "--searching-session", type=int, default=10,
             help="Pause interval for Searching Session")
@@ -354,12 +399,12 @@ def parseCmdArgs():
     return args
 
 
-
 #parse commandlist arguments    
 args = parseCmdArgs()
 outFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
                                         "_u"
             )
+outStatsFname = outFname+"_pickle"
 outputStream = None
 try:
     outputStream = open(outFname,"w")
@@ -524,3 +569,17 @@ for key in logHashTable.keys():
     sessionTypes[1].append(sessionType1)
     sessionTypes[0].append(sessionType0)
     evaluate(sessionTypes,R,outputStream,key)
+
+print "minN1: ",minN1
+print "maxN1: ",maxN1
+print "minP1: ",minP1
+print "maxP1: ",maxP1
+print "minr1: ",minr1
+print "maxr1: ",maxr1
+print "mina1: ",mina1
+print "maxa1: ",maxa1
+print "TotalNumberUser: ",TotalNumberUser
+print "TotalNumberReq: ",TotalNumberReq
+
+outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,TotalNumberReq]
+pickle.dump(outStats, open(outStatsFname,"wb"))
