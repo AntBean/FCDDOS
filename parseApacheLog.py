@@ -125,6 +125,7 @@ def iSHumanGenerated(URI):
         if re.search(regx,URI):
             return True
 
+    #return True
     return None
 # calculate number of sessions 
 # for a session type
@@ -337,6 +338,7 @@ def evaluate(sessionTypes,R,outputStream,key):
     for param in NPraList:
         if param < 0:
             print "mal ip",key;
+            return 0
     #print logHashTable[key]
     #set attacker data
     setAttackerParameters(NPraList,R)
@@ -424,6 +426,7 @@ logHashTable = {}
 alp = ApacheLogParser()
 
 invalidFormatCount = 0;
+invalidNPraCount = 0;
 totalLogCount = 0
 try: 
     f = open(args.apache_log_file)
@@ -456,7 +459,12 @@ for line in f:
             if parsedLogLine.ipAddr not in logHashTable:
                 logHashTable[parsedLogLine.ipAddr] = []
             entry = [parsedLogLine.timestamp,parsedLogLine.requestURI]
+            #print "entry ",entry
             logHashTable[parsedLogLine.ipAddr].append(entry)
+        else:
+            #print "requestURI", parsedLogLine.requestURI
+            invalidFormatCount+=1
+            
     except pyparsing.ParseException, err:
         pass
         #print "invalid log format:"
@@ -468,8 +476,9 @@ for line in f:
     #   print "parsing failed"
     #   print "  ","line: ", line
 
-print "invalid count = ", invalidFormatCount, "total log count",totalLogCount
 print "MapSize = " , len(logHashTable)
+#print "total log count",totalLogCount
+#print "invalid format = ", invalidFormatCount
 #print "MapSize = " , sys.getsizeof(logHashTable)
 # iterate through the hastable &
 # for each entry print 17 parameters by 
@@ -516,7 +525,8 @@ for key in logHashTable.keys():
         totalSesTime = request[0]-startTs
         if  totalSesTime.total_seconds() > args.max_full_session_time:
             #calculate paramerter for request added till now, write them output
-            evaluate(sessionTypes,R,outputStream,key)
+            if evaluate(sessionTypes,R,outputStream,key)==0:
+                invalidNPraCount += R;
             #reintilize sessionTypes & variables
             sessionTypes = [[],[],[],[]]
             sessionType0 = []
@@ -526,7 +536,7 @@ for key in logHashTable.keys():
 
             prevReqTs = request[0]
             startTs = request[0]
-            R = 1
+            R = 0
     
         diff = request[0] - prevReqTs
         #if diff.total_seconds() > 600:
@@ -568,7 +578,8 @@ for key in logHashTable.keys():
     sessionTypes[2].append(sessionType2)
     sessionTypes[1].append(sessionType1)
     sessionTypes[0].append(sessionType0)
-    evaluate(sessionTypes,R,outputStream,key)
+    if evaluate(sessionTypes,R,outputStream,key) ==0:
+        invalidNPraCount += R;
 
 print "minN1: ",minN1
 print "maxN1: ",maxN1
@@ -583,3 +594,31 @@ print "TotalNumberReq: ",TotalNumberReq
 
 outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,TotalNumberReq]
 pickle.dump(outStats, open(outStatsFname,"wb"))
+print "total log count",totalLogCount
+print "invalid format = ", invalidFormatCount
+print "invalid NPra = ", invalidNPraCount
+print "total Invalid =",invalidFormatCount+invalidNPraCount
+
+statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
+                                        "_stats"
+            )
+statsOutStream = None
+try:
+    statsOutStream = open(statsFname,"w")
+except:
+    print "Error Opening stats output file: ",statsFname
+statsOutString = "minN1: "+str(minN1)+"\n"+\
+                    "maxN1: "+str(maxN1)+"\n"+\
+                    "minP1: "+str(round(minP1,2))+"\n"+\
+                    "maxP1: "+str(round(maxP1,2))+"\n"+\
+                    "minr1: "+str(round(minr1,2))+"\n"+\
+                    "maxr1: "+str(round(maxr1,2))+"\n"+\
+                    "mina1: "+str(round(mina1,2))+"\n"+\
+                    "maxa1: "+str(round(maxa1,2))+"\n"+\
+                    "TotalNumberUser: "+str(round(TotalNumberUser,2))+"\n"+\
+                    "Total log count"+str(round(totalLogCount,2))+"\n"+\
+                    "TotalNumberReq: "+str(round(TotalNumberReq,2))+"\n"+\
+                    "invalid format = "+str(round(invalidFormatCount,2))+"\n"+\
+                    "invalid NPra = "+str(round(invalidNPraCount,2))+"\n"
+
+statsOutStream.write(statsOutString)
