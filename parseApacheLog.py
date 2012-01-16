@@ -592,12 +592,15 @@ print "maxa1: ",maxa1
 print "TotalNumberUser: ",TotalNumberUser
 print "TotalNumberReq: ",TotalNumberReq
 
-outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,TotalNumberReq]
-pickle.dump(outStats, open(outStatsFname,"wb"))
 print "total log count",totalLogCount
 print "invalid format = ", invalidFormatCount
 print "invalid NPra = ", invalidNPraCount
 print "total Invalid =",invalidFormatCount+invalidNPraCount
+TotalNumberAttacker =TotalNumberUser 
+outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
+         TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
+         totalLogCount]
+pickle.dump(outStats, open(outStatsFname,"wb"))
 
 statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
                                         "_stats"
