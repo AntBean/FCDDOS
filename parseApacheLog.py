@@ -422,7 +422,11 @@ tempStream = os.tmpfile()
 # with client ip address as the key 
 # each hash table enty is a list of request 
 # with all the request having the same ip
-logHashTable = {} 
+logHashTable = {}
+
+#hashtable to keep the count of different file extensions
+#this will be used to decide which file types should be added for our analysis
+fileExtnAccessFrequencyTable = {}
 alp = ApacheLogParser()
 
 invalidFormatCount = 0;
@@ -451,6 +455,33 @@ for line in f:
         #print dir(parsedLogLine)
         #print parsedLogLine
         #print parsedLogLine.ipAddr, parsedLogLine.timestamp, parsedLogLine.requestURI
+        
+        #update the access frequency of file extensions
+        if "." not in parsedLogLine.requestURI:
+            fileEAFTKey = "/"
+        else:
+            fileEAFTTempKey = parsedLogLine.requestURI
+            EAFTRe='\.[a-zA-Z\d]+[?\s]|\.[a-zA-Z\d]+$'
+            try:
+                fileEAFTKey=re.findall(EAFTRe,fileEAFTTempKey)
+                #check if key is empty, then make it path access file extension
+                if len(fileEAFTKey) == 0:
+                    fileEAFTKey = "/"
+                else:
+                    fileEAFTKey = fileEAFTKey[0].strip(".? ")
+            except:
+                print fileEAFTTempKey  
+                exit(0)
+            
+                
+            
+
+        #update the counter if key is already present else add the key     
+        if fileEAFTKey not in fileExtnAccessFrequencyTable:
+            fileExtnAccessFrequencyTable[fileEAFTKey] = 1 
+        else:
+            fileExtnAccessFrequencyTable[fileEAFTKey]+=1
+            
         # check if the request is human-generated or not
         # by verifying the requestURI
         if iSHumanGenerated(parsedLogLine.requestURI):
@@ -477,6 +508,9 @@ for line in f:
     #   print "  ","line: ", line
 
 print "MapSize = " , len(logHashTable)
+
+
+
 #print "total log count",totalLogCount
 #print "invalid format = ", invalidFormatCount
 #print "MapSize = " , sys.getsizeof(logHashTable)
@@ -599,7 +633,7 @@ print "total Invalid =",invalidFormatCount+invalidNPraCount
 TotalNumberAttacker =TotalNumberUser 
 outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
-         totalLogCount]
+         totalLogCount,fileExtnAccessFrequencyTable]
 pickle.dump(outStats, open(outStatsFname,"wb"))
 
 statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+

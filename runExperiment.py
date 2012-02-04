@@ -14,6 +14,8 @@ def parseCmdArgs():
             help="Unparsed Apache Log File")
     parser.add_argument("-o", "--outdir", default=None, required = True,
             help="Output Directory")
+    parser.add_argument("-r", "--attacker-user-ratio", default=1,
+            help="attacker to user ratio")
     args = parser.parse_args()
     return args
 
@@ -24,6 +26,8 @@ wsstats = wb.add_sheet('DataSetStats')
 wsfp = wb.add_sheet('FalsePositives')
 wsfn = wb.add_sheet('FalseNegatives')
 wsbotcount = wb.add_sheet('NumberOfBots')
+wsfileExtnAccessFrequency = wb.add_sheet('fileExtnAccessFrequency')
+wsMinMBDetails = wb.add_sheet('minMBDetails')
 
 args = parseCmdArgs()
 models = []
@@ -41,6 +45,18 @@ if args.unparsed_log_files:
         print "parsed out file: ",parsed_log_file
         print "Parse apache command: ", parseApacheCommand
         os.system(parseApacheCommand)
+#intiliazed data for file access frequency sheet
+wsfileExtnAccessFrequency.write(0, 0, "ID")
+wsfileExtnAccessFrequency.write(0, 1, "FileExtn")
+wsfileExtnAccessFrequency.write(0, 2, "Count")
+wsFEAFRow = 1
+
+#intilize data for minMBDetails sheet
+wsMinMBDetails.write(0,0,"trnSet");
+wsMinMBDetails.write(0,1,"tstSet");
+wsMinMBDetails.write(0,2,"minMB");
+wsMinMBDetails.write(0,3,"minMBNPra");
+
 #intiliazed data for datastats sheet
 wsstats.write(0, 0, "ID")
 wsstats.write(0, 1, "#User")
@@ -82,6 +98,8 @@ for parsed_log_file in args.parsed_log_files:
     invalidFormatCount = outStats[11]
     invalidNPraCount = outStats[12]
     totalLogCount = outStats[13]
+    fileExtnAccessFrequencyTable = outStats[14]
+    
     ID = str(os.path.basename(parsed_log_file).partition("_u")[0])
     #write stats data to report file
     wsstats.write(statsRowIndx, 0, ID)
@@ -96,12 +114,30 @@ for parsed_log_file in args.parsed_log_files:
     wsstats.write(statsRowIndx, 10, "["+str(minr1)+"-"+str(maxr1)+"]")
     wsstats.write(statsRowIndx, 11, "["+str(mina1)+"-"+str(maxa1)+"]")
     statsRowIndx+=1
+   
+    """
+    There is bug in this part row number getting crossed 65355 this is due to the bug in 
+    extracting extensions from request in parseApache file
+    """ 
+    #write file access frequency table data to report file
+    print "############################################################"
+    for key in fileExtnAccessFrequencyTable.keys():
+        wsfileExtnAccessFrequency.write(wsFEAFRow, 0, ID)
+        wsfileExtnAccessFrequency.write(wsFEAFRow, 1, key)
+        wsfileExtnAccessFrequency.write(wsFEAFRow, 2, fileExtnAccessFrequencyTable[key])
+        wsFEAFRow += 1
+    
+    
+    for key in fileExtnAccessFrequencyTable.keys():
+        print key,"\t",fileExtnAccessFrequencyTable[key] 
+    
+    print "############################################################"
 
     #attackerOutFname = str(parsed_log_file.partition("_u")[0])+"_a"
     attackerOutFname = str(outBaseFname.partition("_u")[0])+"_a"
     #run attack_generate command
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
-                        " -n "+str(TotalNumberUser)+\
+                        " -n "+str(int(args.attacker_user_ratio)*TotalNumberUser)+\
                         " -N "+str(minN1)+"-"+str(maxN1)+\
                         " -P "+str(minP1)+"-"+str(maxP1)+\
                         " -r "+str(minr1)+"-"+str(maxr1)+\
@@ -242,11 +278,16 @@ for testResultFname in testResultFiles:
     if col == colCount+1:
         col = 1
         row+=1
+    
 
 #Get number of bots needed
 col = 1 #since col 0 is already written
 row = 1
 colCount = int(math.sqrt(len(misclassificationFiles)))
+#intilize row, col for minMBNPra details
+minMBDetRow = 1
+minMBDetCol = 0
+
 for misclassificationFname in misclassificationFiles:
     #parse training & testing set names
     splittedMRLFname = os.path.basename(misclassificationFname).split(".")
@@ -264,7 +305,10 @@ for misclassificationFname in misclassificationFiles:
         exit(0)
     
     misClsficResLines = misClsficResInStream.readlines()
-    minMB = None
+    minMB = None # will store the minimum botnet size
+    # will keep track of NPra parameters for the bot with min botnet size
+    minMBNPra = None     
+
     for misClsficResLine in misClsficResLines:
         #parse line
         if 'ATTACKER' in misClsficResLine:
@@ -288,6 +332,7 @@ for misclassificationFname in misclassificationFiles:
                 print "MB1=",MB
                 if minMB is None or MB < minMB:
                     minMB = MB
+                    minMBNPra = NPraList
 
     print "minMB=",minMB
     if col ==1:
@@ -298,9 +343,20 @@ for misclassificationFname in misclassificationFiles:
         wsbotcount.write(row, col, "INF")
     else:
         wsbotcount.write(row, col, str(minMB))
+
+    #write NPra for the minMB bot
+    wsMinMBDetails.write(minMBDetRow,minMBDetCol,trnSet);
+    wsMinMBDetails.write(minMBDetRow,minMBDetCol+1,tstSet);
+    wsMinMBDetails.write(minMBDetRow,minMBDetCol+2,minMB);
+    wsMinMBDetails.write(minMBDetRow,minMBDetCol+3,str(minMBNPra));
+    
+    minMBDetRow += 1
+    minMBDetCol = 0
+
     col+=1
     if col == colCount+1:
         col = 1
         row+=1
     
-wb.save('report.xls')
+#wb.save('report.xls')
+wb.save(os.path.join(args.outdir,os.path.basename('reports.xls')))
