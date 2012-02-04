@@ -674,11 +674,11 @@ for key in logHashTable.keys():
 if minN1 == maxN1:
         maxN1 += 1
 if minP1 == maxP1:
-        minP1 = 0
+        minP1 = 1
 if minr1 == maxr1:
         maxr1 += 1
 if mina1 == maxa1:
-        mina1 = 0
+        mina1 = 1
 
 #display stats and dump them to pickkle file
 print "minN1: ",minN1
