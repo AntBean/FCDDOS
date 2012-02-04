@@ -99,6 +99,9 @@ for parsed_log_file in args.parsed_log_files:
     invalidNPraCount = outStats[12]
     totalLogCount = outStats[13]
     fileExtnAccessFrequencyTable = outStats[14]
+
+    #update TotalNumberOfAttacker
+    TotalNumberAttacker *= int(args.attacker_user_ratio)
     
     ID = str(os.path.basename(parsed_log_file).partition("_u")[0])
     #write stats data to report file
@@ -137,7 +140,7 @@ for parsed_log_file in args.parsed_log_files:
     attackerOutFname = str(outBaseFname.partition("_u")[0])+"_a"
     #run attack_generate command
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
-                        " -n "+str(int(args.attacker_user_ratio)*TotalNumberUser)+\
+                        " -n "+str(TotalNumberAttacker)+\
                         " -N "+str(minN1)+"-"+str(maxN1)+\
                         " -P "+str(minP1)+"-"+str(maxP1)+\
                         " -r "+str(minr1)+"-"+str(maxr1)+\

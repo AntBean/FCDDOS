@@ -669,6 +669,17 @@ for key in logHashTable.keys():
         TotalNumberReq += len(logHashTable[key])
 
 
+#check attack parameter if they are valid or not
+#if min and max values are same, then set them appropriote values
+if minN1 == maxN1:
+        maxN1 += 1
+if minP1 == maxP1:
+        minP1 = 0
+if minr1 == maxr1:
+        maxr1 += 1
+if mina1 == maxa1:
+        mina1 = 0
+
 #display stats and dump them to pickkle file
 print "minN1: ",minN1
 print "maxN1: ",maxN1
