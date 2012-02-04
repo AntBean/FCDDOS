@@ -35,6 +35,9 @@ minr1 = None
 maxr1 = None
 mina1 = None
 maxa1 = None
+invalidNPraCount = 0
+invalidFormatCount = 0;
+totalLogCount = 0
 
 class timezone(datetime.tzinfo):
     def __init__(self, name="+0000"):
@@ -258,6 +261,7 @@ def calculateNPra(sessionType):
     a = calculate_a(sessionType)
     result = [N,P,r,a]  
     #print indntlevel*indnt,result
+    #print indntlevel*indnt,sessionType
     if None in result:
         indntlevel-=1
         return None
@@ -275,6 +279,8 @@ def calculate16Parameters(sessionTypes):
         #print "i=", i
         if result is None:
             #print len(sessionTypes[j])
+            #print indntlevel*indnt,sessionTypes[j]
+            #print indntlevel*indnt,sessionTypes
             indntlevel-=1
             return None
         paramList.extend(result)
@@ -315,8 +321,6 @@ def setAttackerParameters(NPraList,R):
         mina1 = NPraList[3]
     if (maxa1 is None) or (NPraList[3] > maxa1):
         maxa1 = NPraList[3]
-    TotalNumberUser += 1
-    TotalNumberReq += R
 
 #evaluate parameters & write to the outputStream
 def evaluate(sessionTypes,R,outputStream,key):
@@ -371,6 +375,129 @@ def evaluate(sessionTypes,R,outputStream,key):
     outputStream.write(outputString)
     #print outputData
     return 1
+
+#processEntryLogHashTable
+#process a single entyr log hash table that means
+# process the request for i ip address and calculates
+#NPra for it
+def processEntryLogHashTable(logHashTable,key):    
+    global invalidNPraCount
+    #timestamp = parse_apache_date(logHashTable[key].timestamp.ts, logHashTable[key].timestamp.tz)
+    #timestamp_str = timestamp.isoformat()  
+    #print timestamp
+    #print logHashTable[key] , "\n\n"
+    #print "ip ", key
+    
+    # we support only four session types
+    # index 0 for searching sessions
+    # index 1 for browsing sessions
+    # index 2 for relaxed sessions
+    # index 3 for long sessions
+    sessionTypes = [[],[],[],[]]
+    sessionType0 = []
+    sessionType1 = []
+    sessionType2 = []
+    sessionType3 = []
+
+    prevReqTs = None
+    startTs = None
+    # R is total number of request for this user in one session
+    R = 0
+    #print key
+    for request in logHashTable[key]:
+        """
+        print "request: ",request
+        print dir(request)
+        print "type: ", type(request)
+        exit(0)
+        """
+        #if outputStatus is 1:
+        #   print "request size =" , sys.getsizeof(request)
+        if prevReqTs is None:
+            prevReqTs = request[0]
+            startTs = request[0]
+        # check if the request[0]-startTs > 3600, if yes we assume then user is using 
+        # the system second time & create a seprate entry in the parsed file for this
+        # new session
+        totalSesTime = request[0]-startTs
+        if  totalSesTime.total_seconds() > args.max_full_session_time:
+            # since these are the last session of each type
+            # & will not be added at the end of for loop
+            # we have to add them here
+            #print sessionType3
+            sessionTypes[3].append(sessionType3)
+            sessionTypes[2].append(sessionType2)
+            sessionTypes[1].append(sessionType1)
+            sessionTypes[0].append(sessionType0)
+            #calculate paramerter for request added till now, write them output
+            """
+            if evaluate(sessionTypes,R,outputStream,key)==0:
+                invalidNPraCount += R;
+            """
+            #if error return 0
+            if evaluate(sessionTypes,R,outputStream,key)==0:
+                return 0
+            #reintilize sessionTypes & variables
+            sessionTypes = [[],[],[],[]]
+            sessionType0 = []
+            sessionType1 = []
+            sessionType2 = []
+            sessionType3 = []
+
+            prevReqTs = request[0]
+            startTs = request[0]
+            R = 0
+    
+        diff = request[0] - prevReqTs
+        #if diff.total_seconds() > 600:
+        if diff.total_seconds() > args.long_session:
+            sessionTypes[3].append(sessionType3)
+            #print sessionType3
+            sessionType3 = []
+        #if diff.total_seconds() > 300:
+        if diff.total_seconds() > args.relaxed_session:
+            sessionTypes[2].append(sessionType2)
+            sessionType2 = []
+        #if diff.total_seconds() > 60:
+        if diff.total_seconds() > args.browsing_session:
+            sessionTypes[1].append(sessionType1)
+            sessionType1 = []
+        #if diff.total_seconds() > 10:
+        if diff.total_seconds() > args.searching_session:
+            sessionTypes[0].append(sessionType0)
+            sessionType0 = []
+        R+=1
+
+        #seconds = (request.timestamp-startTs).seconds+20
+        seconds = (request[0]-startTs)
+        sessionType0.append(seconds)
+        sessionType1.append(seconds)
+        sessionType2.append(seconds)
+        sessionType3.append(seconds)
+        #sessionType0.append(request.timestamp)
+        #sessionType1.append(request.timestamp)
+        #sessionType2.append(request.timestamp)
+        #sessionType3.append(request.timestamp)
+        prevReqTs = request[0]
+    
+    # since these are the last session of each type
+    # & will not be added at the end of for loop
+    # we have to add them here
+    #print sessionType3
+    sessionTypes[3].append(sessionType3)
+    sessionTypes[2].append(sessionType2)
+    sessionTypes[1].append(sessionType1)
+    sessionTypes[0].append(sessionType0)
+    """
+    if evaluate(sessionTypes,R,outputStream,key) == 0:
+        invalidNPraCount += R;
+    """
+    # if error return 0, on success return 1
+    if evaluate(sessionTypes,R,outputStream,key) == 0:
+        return 0
+    else:
+        return 1
+        
 
 # parse commandline arguments
 def parseCmdArgs():
@@ -429,9 +556,6 @@ logHashTable = {}
 fileExtnAccessFrequencyTable = {}
 alp = ApacheLogParser()
 
-invalidFormatCount = 0;
-invalidNPraCount = 0;
-totalLogCount = 0
 try: 
     f = open(args.apache_log_file)
 except:
@@ -510,7 +634,6 @@ for line in f:
 print "MapSize = " , len(logHashTable)
 
 
-
 #print "total log count",totalLogCount
 #print "invalid format = ", invalidFormatCount
 #print "MapSize = " , sys.getsizeof(logHashTable)
@@ -521,100 +644,32 @@ print "MapSize = " , len(logHashTable)
 #print "Map: ",logHashTable
 outputProgBar = ProgressBar(widgets = [Bar('='),Percentage()],maxval=len(logHashTable.keys())).start()
 outputStatus = 0
+
 for key in logHashTable.keys():
+
     outputStatus+=1
     outputProgBar.update(outputStatus)
-    #timestamp = parse_apache_date(logHashTable[key].timestamp.ts, logHashTable[key].timestamp.tz)
-    #timestamp_str = timestamp.isoformat()  
-    #print timestamp
-    #print logHashTable[key] , "\n\n"
-    #print "ip ", key
-    
-    # we support only four session types
-    # index 0 for searching sessions
-    # index 1 for browsing sessions
-    # index 2 for relaxed sessions
-    # index 3 for long sessions
-    sessionTypes = [[],[],[],[]]
-    sessionType0 = []
-    sessionType1 = []
-    sessionType2 = []
-    sessionType3 = []
+    notInvalidNPra = True
+    #process the reqeust for ip address = key
+    if processEntryLogHashTable(logHashTable,key) == 0:
+        # sort the request for this ip address and then call 
+        # processEntryLogHashTable function for sorted request
+        logHashTable[key].sort()
+        # if still there is a error upate the invalidNPra value
+        if processEntryLogHashTable(logHashTable,key) == 0:
+            notInvalidNPra = False
+            invalidNPraCount += len(logHashTable[key])
+            for req in logHashTable[key]:
+                print req
+            exit(0)
+    #update the total number of valid user & vallid request
+    #only if NPra is valid for the user
+    if notInvalidNPra:
+        TotalNumberUser += 1
+        TotalNumberReq += len(logHashTable[key])
 
-    prevReqTs = None
-    startTs = None
-    # R is total number of request for this user
-    R = 0
-    #print key
-    for request in logHashTable[key]:
-        #print "  ",request
-        #if outputStatus is 1:
-        #   print "request size =" , sys.getsizeof(request)
-        if prevReqTs is None:
-            prevReqTs = request[0]
-            startTs = request[0]
-        # check if the request[0]-startTs > 3600, if yes we assume then user is using 
-        # the system second time & create a seprate entry in the parsed file for this
-        # new session
-        totalSesTime = request[0]-startTs
-        if  totalSesTime.total_seconds() > args.max_full_session_time:
-            #calculate paramerter for request added till now, write them output
-            if evaluate(sessionTypes,R,outputStream,key)==0:
-                invalidNPraCount += R;
-            #reintilize sessionTypes & variables
-            sessionTypes = [[],[],[],[]]
-            sessionType0 = []
-            sessionType1 = []
-            sessionType2 = []
-            sessionType3 = []
 
-            prevReqTs = request[0]
-            startTs = request[0]
-            R = 0
-    
-        diff = request[0] - prevReqTs
-        #if diff.total_seconds() > 600:
-        if diff.total_seconds() > args.long_session:
-            sessionTypes[3].append(sessionType3)
-            #print sessionType3
-            sessionType3 = []
-        #if diff.total_seconds() > 300:
-        if diff.total_seconds() > args.relaxed_session:
-            sessionTypes[2].append(sessionType2)
-            sessionType2 = []
-        #if diff.total_seconds() > 60:
-        if diff.total_seconds() > args.browsing_session:
-            sessionTypes[1].append(sessionType1)
-            sessionType1 = []
-        #if diff.total_seconds() > 10:
-        if diff.total_seconds() > args.searching_session:
-            sessionTypes[0].append(sessionType0)
-            sessionType0 = []
-        R+=1
-
-        #seconds = (request.timestamp-startTs).seconds+20
-        seconds = (request[0]-startTs)
-        sessionType0.append(seconds)
-        sessionType1.append(seconds)
-        sessionType2.append(seconds)
-        sessionType3.append(seconds)
-        #sessionType0.append(request.timestamp)
-        #sessionType1.append(request.timestamp)
-        #sessionType2.append(request.timestamp)
-        #sessionType3.append(request.timestamp)
-        prevReqTs = request[0]
-    
-    # since these are the last session of each type
-    # & will not be added at the end of for loop
-    # we have to add them here
-    #print sessionType3
-    sessionTypes[3].append(sessionType3)
-    sessionTypes[2].append(sessionType2)
-    sessionTypes[1].append(sessionType1)
-    sessionTypes[0].append(sessionType0)
-    if evaluate(sessionTypes,R,outputStream,key) ==0:
-        invalidNPraCount += R;
-
+#display stats and dump them to pickkle file
 print "minN1: ",minN1
 print "maxN1: ",maxN1
 print "minP1: ",minP1
@@ -625,11 +680,11 @@ print "mina1: ",mina1
 print "maxa1: ",maxa1
 print "TotalNumberUser: ",TotalNumberUser
 print "TotalNumberReq: ",TotalNumberReq
-
 print "total log count",totalLogCount
 print "invalid format = ", invalidFormatCount
 print "invalid NPra = ", invalidNPraCount
 print "total Invalid =",invalidFormatCount+invalidNPraCount
+
 TotalNumberAttacker =TotalNumberUser 
 outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
@@ -639,6 +694,14 @@ pickle.dump(outStats, open(outStatsFname,"wb"))
 statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
                                         "_stats"
             )
+
+
+"""
+This Code is not needed anymore as we are writing 
+data set stats into pickle file, which is getting written 
+int xls sheet, so commenting out this piece of code
+
+
 statsOutStream = None
 try:
     statsOutStream = open(statsFname,"w")
@@ -652,10 +715,11 @@ statsOutString = "minN1: "+str(minN1)+"\n"+\
                     "maxr1: "+str(round(maxr1,2))+"\n"+\
                     "mina1: "+str(round(mina1,2))+"\n"+\
                     "maxa1: "+str(round(maxa1,2))+"\n"+\
-                    "TotalNumberUser: "+str(round(TotalNumberUser,2))+"\n"+\
-                    "Total log count"+str(round(totalLogCount,2))+"\n"+\
-                    "TotalNumberReq: "+str(round(TotalNumberReq,2))+"\n"+\
-                    "invalid format = "+str(round(invalidFormatCount,2))+"\n"+\
-                    "invalid NPra = "+str(round(invalidNPraCount,2))+"\n"
+                    "TotalNumberUser: "+str((TotalNumberUser))+"\n"+\
+                    "Total log count"+str((totalLogCount))+"\n"+\
+                    "TotalNumberReq: "+str((TotalNumberReq))+"\n"+\
+                    "invalid format = "+str((invalidFormatCount))+"\n"+\
+                    "invalid NPra = "+str(invalidNPraCount)+"\n"
 
 statsOutStream.write(statsOutString)
+"""
