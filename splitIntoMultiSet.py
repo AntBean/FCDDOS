@@ -1,7 +1,7 @@
 """
     split the input apache log file into multiple apache log files
-    the split factor is the number of factore that input set will
-    be splitted into
+    the split factor is the percentage of logs that will be used for
+    training and rest will be in testing
 """
 from pyparsing import alphas,nums, dblQuotedString, Combine, Word, Group, \
                         delimitedList, Suppress, removeQuotes
@@ -29,7 +29,7 @@ def parseCmdArgs():
             help="Apache Log File")
     parser.add_argument("-o", "--output-dir", default=None, required=True,
             help="directory to store the output sets")
-    parser.add_argument("-f", "--split-factor", type=int, default=2,
+    parser.add_argument("-f", "--split-factor", type=float, default=66.66,
             help="Split factor")
     args = parser.parse_args()
     return args
@@ -40,6 +40,10 @@ def parseCmdArgs():
 args = parseCmdArgs()
 apacheInStream = None
 setId = 1;
+totalNumberOfSet = 2
+trnSetId = 1
+tstSetId = 2
+
 try: 
     apacheInStream = open(args.apache_log_file)
 except:
@@ -47,16 +51,21 @@ except:
     exit(0)
 
 apacheLogLines = apacheInStream.readlines()
-#get the number of lines in each set
-LinesPerOutSet = int(len(apacheLogLines)/args.split_factor)
-print "LinesPerOutSet: ", LinesPerOutSet
-while setId <=args.split_factor:
-    #write the lines to the current output set
+#get the number of lines in training set
+LinesTrnOutSet = int(len(apacheLogLines)*(float(args.split_factor)/100))
+print "LinesTrnOutSet: ", LinesTrnOutSet
+
+while setId <=totalNumberOfSet:
     outputLines = []
-    if setId == args.split_factor:
-        outputLines = apacheLogLines[(setId-1)*LinesPerOutSet:]
+    if setId == tstSetId:
+        #write the lines to the testing set
+        outputLines = apacheLogLines[LinesTrnOutSet:]
+    elif setId == trnSetId:
+        #write the lines to the training set
+        outputLines = apacheLogLines[0:LinesTrnOutSet]
     else:
-        outputLines = apacheLogLines[(setId-1)*LinesPerOutSet:setId*LinesPerOutSet]
+        print "Invalid setId"
+        exit(0)
     #open a new output set file
     outputFname = os.path.join(args.output_dir,os.path.basename(args.apache_log_file)\
             +str(setId))

@@ -21,6 +21,15 @@ def parseCmdArgs():
 
 
 #parse commandlist arguments    
+args = parseCmdArgs()
+
+#create the output directory 
+#if already exits, then use it don't recreate it
+try:
+    os.mkdir(args.outdir,0777)
+except OSError:
+    None
+
 wb = xlwt.Workbook()
 wsstats = wb.add_sheet('DataSetStats')
 wsfp = wb.add_sheet('FalsePositives')
@@ -29,7 +38,6 @@ wsbotcount = wb.add_sheet('NumberOfBots')
 wsfileExtnAccessFrequency = wb.add_sheet('fileExtnAccessFrequency')
 wsMinMBDetails = wb.add_sheet('minMBDetails')
 
-args = parseCmdArgs()
 models = []
 testingSets = []
 if (args.unparsed_log_files is None) and (args.parsed_log_files is None):
@@ -101,7 +109,7 @@ for parsed_log_file in args.parsed_log_files:
     fileExtnAccessFrequencyTable = outStats[14]
 
     #update TotalNumberOfAttacker
-    TotalNumberAttacker *= int(args.attacker_user_ratio)
+    TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
     
     ID = str(os.path.basename(parsed_log_file).partition("_u")[0])
     #write stats data to report file

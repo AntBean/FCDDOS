@@ -349,7 +349,11 @@ def evaluate(sessionTypes,R,outputStream,key):
     # output data
     #print "Final R", R
     outputData = NPraList
+    """
+    Don't append the number of request field as this may be used
+    J4.8 for learning which we do not want
     outputData.append(R)
+    """
     # convert list to comma seperated string
     outputString = ",".join([str(round(x,2)) for x in outputData])
     #outputString += "," 
@@ -382,6 +386,7 @@ def evaluate(sessionTypes,R,outputStream,key):
 #NPra for it
 def processEntryLogHashTable(logHashTable,key):    
     global invalidNPraCount
+    numValidUsers = 0
     #timestamp = parse_apache_date(logHashTable[key].timestamp.ts, logHashTable[key].timestamp.tz)
     #timestamp_str = timestamp.isoformat()  
     #print timestamp
@@ -434,9 +439,12 @@ def processEntryLogHashTable(logHashTable,key):
             if evaluate(sessionTypes,R,outputStream,key)==0:
                 invalidNPraCount += R;
             """
-            #if error return 0
-            if evaluate(sessionTypes,R,outputStream,key)==0:
+            #if error return 0, else dont return anything at this point
+            resultEvaluate = evaluate(sessionTypes,R,outputStream,key)
+            if resultEvaluate ==0:
                 return 0
+            else:
+                numValidUsers += 1
             #reintilize sessionTypes & variables
             sessionTypes = [[],[],[],[]]
             sessionType0 = []
@@ -492,11 +500,13 @@ def processEntryLogHashTable(logHashTable,key):
     if evaluate(sessionTypes,R,outputStream,key) == 0:
         invalidNPraCount += R;
     """
-    # if error return 0, on success return 1
-    if evaluate(sessionTypes,R,outputStream,key) == 0:
+    # if error return 0, on success return the valid number of instance of this user
+    resultEvaluate = evaluate(sessionTypes,R,outputStream,key)
+    if resultEvaluate ==0:
         return 0
     else:
-        return 1
+        numValidUsers += 1
+        return numValidUsers
         
 
 # parse commandline arguments
@@ -651,12 +661,14 @@ for key in logHashTable.keys():
     outputProgBar.update(outputStatus)
     notInvalidNPra = True
     #process the reqeust for ip address = key
-    if processEntryLogHashTable(logHashTable,key) == 0:
+    resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key)
+    if resultProcessEntryFunc == 0:
         # sort the request for this ip address and then call 
         # processEntryLogHashTable function for sorted request
         logHashTable[key].sort()
         # if still there is a error upate the invalidNPra value
-        if processEntryLogHashTable(logHashTable,key) == 0:
+        resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key)
+        if resultProcessEntryFunc == 0:
             notInvalidNPra = False
             invalidNPraCount += len(logHashTable[key])
             for req in logHashTable[key]:
@@ -665,7 +677,7 @@ for key in logHashTable.keys():
     #update the total number of valid user & vallid request
     #only if NPra is valid for the user
     if notInvalidNPra:
-        TotalNumberUser += 1
+        TotalNumberUser += resultProcessEntryFunc
         TotalNumberReq += len(logHashTable[key])
 
 

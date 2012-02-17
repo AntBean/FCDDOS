@@ -84,9 +84,13 @@ def getNPraForOthers(N,P,r,a):
     R = int(N * r) 
     r_other = R/N_other
     a_other = float(N*(r-1)*a +(N-1)*P)/(N*(r-1)+(N-1))
+    """
+    Don't add R in the parameter list so that it won't be used in trainig
     return [N_other,P_other,r_other,a_other,N_other,P_other,r_other,a_other,\
                 N_other,P_other,r_other,a_other,R]
-    
+    """
+    return [N_other,P_other,r_other,a_other,N_other,P_other,r_other,a_other,\
+                N_other,P_other,r_other,a_other]
 
 
 
