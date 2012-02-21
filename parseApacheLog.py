@@ -13,6 +13,7 @@ from pyparsing import alphas,nums, dblQuotedString, Combine, Word, Group, \
                         delimitedList, Suppress, removeQuotes
 
 from progressbar import ProgressBar , Percentage, Bar
+from urlparse import urlparse
 import string
 import datetime
 import time
@@ -21,6 +22,7 @@ import argparse
 import os, sys
 import re
 import pickle
+
 indnt = "  "
 indntlevel = 0
 
@@ -77,7 +79,8 @@ class ApacheLogParser:
         requestURI = httpReqParsed[1]
         t["method"] = method
         t["requestURI"] = requestURI    
-        #t["method"],t["requestURI"],t["protocolVersion"] = t[0].strip('"').split()
+        #t["method"],t["requestURI"],t["protocolVersion"] = \
+            #t[0].strip('"').split()
         #t["method"],t["requestURI"] = t.strip('"').split()
 
     # Takes the timestamp from the apache log and return 
@@ -92,7 +95,7 @@ class ApacheLogParser:
     def prepareParser(self):
 
         integer = Word( nums )
-        ipAddress = delimitedList(Word(alphas+nums+"-_&#"), ".", combine=True )
+        ipAddress = delimitedList(Word(alphas+nums+"-_&#"), ".", combine=True)
         #ipAddress = delimitedList(Word(alphas+nums+"-_"), ".", combine=True )
         timeZoneOffset = Word("+-",nums)
         month = Word(string.uppercase, string.lowercase, exact=3)
@@ -103,13 +106,18 @@ class ApacheLogParser:
                                             integer + ":" + integer )+
                                 timeZoneOffset + Suppress("]") )
         
-        logLine = ( ipAddress.setResultsName("ipAddr") +
-                    Suppress("-") +
-                    ("-" | Word( alphas+nums+"@._" )).setResultsName("auth") +
-                    (serverDateTime | "-" ).setParseAction(self.timestampParser) +
-                    dblQuotedString.setResultsName("cmd").setParseAction(self.httpCmdParser) +
-                    (integer | "-").setResultsName("statusCode") + 
-                    (integer | "-").setResultsName("numBytesSent"))
+        logLine = (ipAddress.setResultsName("ipAddr") +\
+                    Suppress("-") +\
+                    ("-" | Word( alphas+nums+"@._" )).\
+                        setResultsName("auth") +\
+                    (serverDateTime | "-" ).\
+                        setParseAction(self.timestampParser) +\
+                    dblQuotedString.setResultsName("cmd").\
+                        setParseAction(self.httpCmdParser) +\
+                    (integer | "-").\
+                        setResultsName("statusCode")+\
+                    (integer | "-").\
+                        setResultsName("numBytesSent"))
         return logLine
 
     def parseLogLine(self,line):
@@ -387,7 +395,8 @@ def evaluate(sessionTypes,R,outputStream,key):
 def processEntryLogHashTable(logHashTable,key):    
     global invalidNPraCount
     numValidUsers = 0
-    #timestamp = parse_apache_date(logHashTable[key].timestamp.ts, logHashTable[key].timestamp.tz)
+    #timestamp = parse_apache_date(logHashTable[key].timestamp.ts,\ 
+                    #logHashTable[key].timestamp.tz)
     #timestamp_str = timestamp.isoformat()  
     #print timestamp
     #print logHashTable[key] , "\n\n"
@@ -421,9 +430,11 @@ def processEntryLogHashTable(logHashTable,key):
         if prevReqTs is None:
             prevReqTs = request[0]
             startTs = request[0]
-        # check if the request[0]-startTs > 3600, if yes we assume then user is using 
-        # the system second time & create a seprate entry in the parsed file for this
-        # new session
+        """
+            check if the request[0]-startTs > 3600,if yes we assume then user 
+            is using the system second time & create a seprate entry in the 
+            parsed file for thisnew session
+        """
         totalSesTime = request[0]-startTs
         if  totalSesTime.total_seconds() > args.max_full_session_time:
             # since these are the last session of each type
@@ -500,7 +511,8 @@ def processEntryLogHashTable(logHashTable,key):
     if evaluate(sessionTypes,R,outputStream,key) == 0:
         invalidNPraCount += R;
     """
-    # if error return 0, on success return the valid number of instance of this user
+    # if error return 0, on success return the valid number of instance 
+    # of this user
     resultEvaluate = evaluate(sessionTypes,R,outputStream,key)
     if resultEvaluate ==0:
         return 0
@@ -508,6 +520,34 @@ def processEntryLogHashTable(logHashTable,key):
         numValidUsers += 1
         return numValidUsers
         
+"""
+ method to get sub-directory from the request uri
+"""
+def getSubDir(requestURI):
+    parsedURI = urlparse(requestURI)
+    """
+    instead of using just the dir name of the file in 
+    request uri we will use dirname with complete path
+    so that /a/b/1.html and /b/2.html will not return same 
+    sub dir name
+    """
+    #subDir = os.path.dirname(parsedURI.path).split('/')[-1]
+    subDir = os.path.dirname(parsedURI.path)
+    if len(subDir) ==0:
+        return '/'
+    else:
+        return subDir
+
+"""
+    method to get the file extension from the request uri
+"""
+def getFileEXTN(requestURI):
+    parsedURI = urlparse(requestURI)
+    fileEXTN = os.path.basename(parsedURI.path).split('.')[-1]
+    if len(fileEXTN) ==0:
+        return '/'
+    else:
+        return fileEXTN
 
 # parse commandline arguments
 def parseCmdArgs():
@@ -529,10 +569,11 @@ def parseCmdArgs():
             help="Pause interval for Relaxed Session")
     parser.add_argument("-l", "--long-session", type=int, default=600,
             help="Pause interval for long Session")
-    parser.add_argument("-t", "--max-full-session-time", type=int, default=3600,
+    parser.add_argument("-t", "--max-full-session-time", type=int, \
+            default=3600, \
             help="Maximum time for the complete 1 user session")
     parser.add_argument("-a", "--is-attacker", action = 'store_true', \
-            default=False,                                      \
+            default=False, \
             help="is specified only when the input trace is attack")
     args = parser.parse_args()
     return args
@@ -586,9 +627,15 @@ for line in f:
     totalLogCount+=1
     try:    
         parsedLogLine = alp.parseLogLine(line)
+        """
+        print the sub-directory name
+        """
+        print parsedLogLine.ipAddr,"=",getSubDir(parsedLogLine.requestURI),\
+            ",",getFileEXTN(parsedLogLine.requestURI)
         #print dir(parsedLogLine)
         #print parsedLogLine
-        #print parsedLogLine.ipAddr, parsedLogLine.timestamp, parsedLogLine.requestURI
+        #print parsedLogLine.ipAddr, parsedLogLine.timestamp,\
+            #parsedLogLine.requestURI
         
         #update the access frequency of file extensions
         if "." not in parsedLogLine.requestURI:
@@ -652,9 +699,10 @@ print "MapSize = " , len(logHashTable)
 # grouping the requests
 # ip address is the key to logHashTable
 #print "Map: ",logHashTable
-outputProgBar = ProgressBar(widgets = [Bar('='),Percentage()],maxval=len(logHashTable.keys())).start()
-outputStatus = 0
+outputProgBar = ProgressBar(widgets = [Bar('='),Percentage()]\
+        ,maxval=len(logHashTable.keys())).start()
 
+outputStatus = 0
 for key in logHashTable.keys():
 
     outputStatus+=1
