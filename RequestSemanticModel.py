@@ -1,13 +1,51 @@
 import os,sys
 
 """
+method to write sequeces probabilities to the text file
+"""
+def writeSequencesProbToFile(sequences, fileName):
+    space = " "
+    colWidth = 16
+    try:
+        seqProbOutStream = open(fileName,"w")
+    except:
+        print "Error Opening sequence prob output file: ",fileName
+    
+    #first write header    
+    header = "SequenceId"+colWidth*space+"SequenceProb"+\
+                        +colWidth*space+"SequenceLength"\
+                        +colWidth*space+"RequestSequence\n"
+    seqProbOutStream.write(header)
+
+    for sequence in sequences:
+        sequenceId = str(sequence.getId())
+        sequenceProb = str(sequence.getSequenceProb())
+        sequenceLength = str(sequence.getSequenceLength())
+        outString = sequenceId+\
+                        ((len("sequenceId")-len(sequenceId))+colWidth)*space+\
+                    sequenceProb+\
+                        ((len("sequenceProb")-len(sequenceProb))+colWidth)*space+\
+                    sequenceLength+\
+                        ((len("sequenceLength")-len(sequenceLength))+colWidth)*space+\
+                    "\n"
+                    
+        seqProbOutStream.write(outString)
+        #now write request for this sequence
+        startPosition = (len(outString)+4)*space
+        for request in sequence.getRequestSequence():
+            requestOutString = startPosition+str(request)+"\n"
+            seqProbOutStream.write(requestOutString)
+
+
+"""
 method to show the sequence probabilites for all the sequences
 """
 def showSequencesProb(sequences):
     for index in range(len(sequences)):
         sequenceId = sequences[index].getId()
         sequenceProb = sequences[index].getSequenceProb()
-        print "["+str(sequenceId)+"]="+str(sequenceProb)
+        print "["+str(sequenceId)+"]="+str(sequenceProb)+","+\
+            str(sequences[index].getSequenceLength())
 
 class Sequence:
     def __init__(self,seqId):
@@ -15,6 +53,11 @@ class Sequence:
         self.sequenceId = seqId
         self.sequenceProb = 0
 
+    """
+    method to return the length of the sequences or number of request in it
+    """
+    def getSequenceLength(self):
+        return len(self.requestSequence)
     """
     method to append a request to the sequence
     Note: request in our case is the sub-directory name

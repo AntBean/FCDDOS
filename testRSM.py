@@ -1,6 +1,7 @@
 import os,sys
 from RequestSemanticModel import RequestGraph, Edge, Sequence
 from RequestSemanticModel import showSequencesProb
+from RequestSemanticModel import writeSequencesProbToFile
 
 
 rg = RequestGraph()
@@ -52,4 +53,6 @@ for seq in seqs:
     seq.calculateSequenceProb(rg)
     #print seq.getId(),"=",seq.getSequenceProb(),","
 showSequencesProb(seqs)
+
+writeSequencesProbToFile(seqs,"SequenceProbTemp")
 

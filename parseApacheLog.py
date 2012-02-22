@@ -14,6 +14,9 @@ from pyparsing import alphas,nums, dblQuotedString, Combine, Word, Group, \
 
 from progressbar import ProgressBar , Percentage, Bar
 from urlparse import urlparse
+from RequestSemanticModel import RequestGraph, Edge, Sequence
+from RequestSemanticModel import showSequencesProb
+from RequestSemanticModel import writeSequencesProbToFile
 import string
 import datetime
 import time
@@ -40,6 +43,7 @@ maxa1 = None
 invalidNPraCount = 0
 invalidFormatCount = 0;
 totalLogCount = 0
+
 
 class timezone(datetime.tzinfo):
     def __init__(self, name="+0000"):
@@ -130,7 +134,7 @@ class ApacheLogParser:
 def iSHumanGenerated(URI):
     # list of file names request that will be considered as 
     # human-generated
-    fileNames= [".htm",".html",".shtml",".htmf",".php",".asp","/"]
+    fileNames= ["htm","html","shtml","htmf","php","asp","/"]
     for fname in fileNames:
         regx = fname + "$"
         if re.search(regx,URI):
@@ -392,9 +396,18 @@ def evaluate(sessionTypes,R,outputStream,key):
 #process a single entyr log hash table that means
 # process the request for i ip address and calculates
 #NPra for it
-def processEntryLogHashTable(logHashTable,key):    
+def processEntryLogHashTable(logHashTable,key,requestGraph,sequences):    
     global invalidNPraCount
     numValidUsers = 0
+    
+    #following variables will be used in creation of request graph
+    parent = None
+    child = None
+
+    #create sequence objets
+    sequenceId = key
+    sequence = Sequence(sequenceId)
+    
     #timestamp = parse_apache_date(logHashTable[key].timestamp.ts,\ 
                     #logHashTable[key].timestamp.tz)
     #timestamp_str = timestamp.isoformat()  
@@ -419,12 +432,31 @@ def processEntryLogHashTable(logHashTable,key):
     R = 0
     #print key
     for request in logHashTable[key]:
+        requestURI = request[1]
         """
         print "request: ",request
         print dir(request)
         print "type: ", type(request)
         exit(0)
         """
+        
+        """
+        #print the sub-directory name
+        print key,"=",getSubDir(requestURI),\
+            ",",getFileEXTN(requestURI)
+        """
+        #get sub-dir and append it to the sequence
+        #and if edge is ready then add to request graph also
+        subDir = getSubDir(requestURI)
+        sequence.append(subDir)
+        if parent is None:
+            parent = subDir
+        else:
+            child = subDir
+            requestGraph.append(parent,child)
+            parent = child
+
+
         #if outputStatus is 1:
         #   print "request size =" , sys.getsizeof(request)
         if prevReqTs is None:
@@ -466,6 +498,13 @@ def processEntryLogHashTable(logHashTable,key):
             prevReqTs = request[0]
             startTs = request[0]
             R = 0
+
+            #also reintilize the data for the request graph and sequences
+            parent = None
+            child = None
+            sequences.append(sequence)
+            sequence = Sequence(sequenceId)
+
     
         diff = request[0] - prevReqTs
         #if diff.total_seconds() > 600:
@@ -498,7 +537,8 @@ def processEntryLogHashTable(logHashTable,key):
         #sessionType2.append(request.timestamp)
         #sessionType3.append(request.timestamp)
         prevReqTs = request[0]
-    
+   
+
     # since these are the last session of each type
     # & will not be added at the end of for loop
     # we have to add them here
@@ -517,6 +557,8 @@ def processEntryLogHashTable(logHashTable,key):
     if resultEvaluate ==0:
         return 0
     else:
+        #add the sequence to the sequences
+        sequences.append(sequence)
         numValidUsers += 1
         return numValidUsers
         
@@ -543,7 +585,28 @@ def getSubDir(requestURI):
 """
 def getFileEXTN(requestURI):
     parsedURI = urlparse(requestURI)
-    fileEXTN = os.path.basename(parsedURI.path).split('.')[-1]
+    fileName = os.path.basename(parsedURI.path)
+
+    #remove following from fileName if present
+    charsToRemove = ["%20","%22"]
+    for charToRemove in charsToRemove:
+        fileName = fileName.replace(charToRemove,"")
+    #partition remove the chars after % sign and % itself
+    #if % is present in the fileName
+    fileName = fileName.split("%")[0]
+    if '.' not in fileName:
+        return '/'
+    #get the file extension
+    fileEXTN = fileName.split('.')[-1]
+    
+    #remove chars after the delimeter
+    delimeters = ["~", "(", ")", ",", "\\"]
+    for delimeter in delimeters:
+        fileEXTN = fileEXTN.split(delimeter)[0]
+        
+    #convert to lowercase
+    fileEXTN = fileEXTN.lower()
+
     if len(fileEXTN) ==0:
         return '/'
     else:
@@ -605,6 +668,12 @@ logHashTable = {}
 #hashtable to keep the count of different file extensions
 #this will be used to decide which file types should be added for our analysis
 fileExtnAccessFrequencyTable = {}
+
+#Request Graph to hold edge counts and edge transitional probabilities
+requestGraph = RequestGraph()
+#sequences to hold the request sequences    
+sequences = []
+
 alp = ApacheLogParser()
 
 try: 
@@ -619,7 +688,8 @@ f.seek(0,2)
 fileSize = f.tell()
 f.seek(0,0)
 # intilize the progress bar
-readProgBar = ProgressBar(widgets = [Bar(),Percentage()],maxval=fileSize).start()
+readProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+        maxval=fileSize).start()
 for line in f:
     #update the progress bar
     readProgBar.update(f.tell())
@@ -627,16 +697,12 @@ for line in f:
     totalLogCount+=1
     try:    
         parsedLogLine = alp.parseLogLine(line)
-        """
-        print the sub-directory name
-        """
-        print parsedLogLine.ipAddr,"=",getSubDir(parsedLogLine.requestURI),\
-            ",",getFileEXTN(parsedLogLine.requestURI)
         #print dir(parsedLogLine)
         #print parsedLogLine
         #print parsedLogLine.ipAddr, parsedLogLine.timestamp,\
             #parsedLogLine.requestURI
         
+        """
         #update the access frequency of file extensions
         if "." not in parsedLogLine.requestURI:
             fileEAFTKey = "/"
@@ -654,7 +720,8 @@ for line in f:
                 print fileEAFTTempKey  
                 exit(0)
             
-                
+           """    
+        fileEAFTKey = getFileEXTN(parsedLogLine.requestURI)
             
 
         #update the counter if key is already present else add the key     
@@ -673,6 +740,7 @@ for line in f:
             entry = [parsedLogLine.timestamp,parsedLogLine.requestURI]
             #print "entry ",entry
             logHashTable[parsedLogLine.ipAddr].append(entry)
+        
         else:
             #print "requestURI", parsedLogLine.requestURI
             invalidFormatCount+=1
@@ -689,8 +757,6 @@ for line in f:
     #   print "  ","line: ", line
 
 print "MapSize = " , len(logHashTable)
-
-
 #print "total log count",totalLogCount
 #print "invalid format = ", invalidFormatCount
 #print "MapSize = " , sys.getsizeof(logHashTable)
@@ -709,13 +775,16 @@ for key in logHashTable.keys():
     outputProgBar.update(outputStatus)
     notInvalidNPra = True
     #process the reqeust for ip address = key
-    resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key)
+    resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key,\
+                                requestGraph,sequences)
+
     if resultProcessEntryFunc == 0:
         # sort the request for this ip address and then call 
         # processEntryLogHashTable function for sorted request
         logHashTable[key].sort()
         # if still there is a error upate the invalidNPra value
-        resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key)
+        resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key,\
+                                    requestGraph,sequences)
         if resultProcessEntryFunc == 0:
             notInvalidNPra = False
             invalidNPraCount += len(logHashTable[key])
@@ -728,6 +797,17 @@ for key in logHashTable.keys():
         TotalNumberUser += resultProcessEntryFunc
         TotalNumberReq += len(logHashTable[key])
 
+
+#calculate edge transitional probabilites
+requestGraph.calculateEdgeTransitionalProb()
+#display the request graph
+requestGraph.show()
+#calculate sequences probabilites and show them
+print "sequence Probabilites"
+for sequence in sequences:
+    sequence.calculateSequenceProb(requestGraph)
+    #print seq.getId(),"=",seq.getSequenceProb(),","
+showSequencesProb(sequences)
 
 #check attack parameter if they are valid or not
 #if min and max values are same, then set them appropriote values
@@ -759,12 +839,12 @@ print "total Invalid =",invalidFormatCount+invalidNPraCount
 TotalNumberAttacker =TotalNumberUser 
 outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
-         totalLogCount,fileExtnAccessFrequencyTable]
+         totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph]
 pickle.dump(outStats, open(outStatsFname,"wb"))
 
 statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
                                         "_stats"
-            )
+                            )
 
 
 """

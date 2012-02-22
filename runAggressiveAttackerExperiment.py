@@ -1,5 +1,6 @@
 import os,sys,argparse,pickle
 import math, xlwt
+from RequestSemanticModel import writeSequencesProbToFile
 # parse commandline arguments
 def parseCmdArgs():
     desc = "runExperiment for request dynamics model"
@@ -37,6 +38,8 @@ wsfn = wb.add_sheet('FalseNegatives')
 wsbotcount = wb.add_sheet('NumberOfBots')
 wsfileExtnAccessFrequency = wb.add_sheet('fileExtnAccessFrequency')
 wsMinMBDetails = wb.add_sheet('minMBDetails')
+wsSequencesProb = wb.add_sheet('sequencesProb')
+ 
 
 models = []
 testingSets = []
@@ -53,6 +56,12 @@ if args.unparsed_log_files:
         print "parsed out file: ",parsed_log_file
         print "Parse apache command: ", parseApacheCommand
         os.system(parseApacheCommand)
+
+#intiliazed data for sequencesProb sheet
+wsSequencesProb.write(0,0,"sequenceID")
+wsSequencesProb.write(0,1,"sequenceProb")
+wsSequencesProb.write(0,2,"sequenceLength")
+
 #intiliazed data for file access frequency sheet
 wsfileExtnAccessFrequency.write(0, 0, "ID")
 wsfileExtnAccessFrequency.write(0, 1, "FileExtn")
@@ -198,6 +207,8 @@ for parsed_log_file in args.parsed_log_files:
     invalidNPraCount = outStats[12]
     totalLogCount = outStats[13]
     fileExtnAccessFrequencyTable = outStats[14]
+    sequences = outStats[15]
+    requestGraph = outStats[16]
 
     #update TotalNumberOfAttacker
     TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
@@ -217,10 +228,6 @@ for parsed_log_file in args.parsed_log_files:
     wsstats.write(statsRowIndx, 11, "["+str(mina1)+"-"+str(maxa1)+"]")
     statsRowIndx+=1
    
-    """
-    There is bug in this part row number getting crossed 65355 this is due to the bug in 
-    extracting extensions from request in parseApache file
-    """ 
     #write file access frequency table data to report file
     print "############################################################"
     for key in fileExtnAccessFrequencyTable.keys():
@@ -234,6 +241,19 @@ for parsed_log_file in args.parsed_log_files:
         print key,"\t",fileExtnAccessFrequencyTable[key] 
     
     print "############################################################"
+
+    #write sequence probability data to the report file
+    wsSequencesProbRow = 1
+    for sequence in sequences:
+        wsSequencesProb.write(wsSequencesProbRow,0,sequence.getId())
+        wsSequencesProb.write(wsSequencesProbRow,1,sequence.getSequenceProb())
+        wsSequencesProb.write(wsSequencesProbRow,2,sequence.getSequenceLength())
+        wsSequencesProbRow += 1
+    #write sequence probability data to the text Log file
+    sequenceProbOutFname = str(outBaseFname.partition("_u")[0])+".SequenceProb"
+    writeSequencesProbToFile(sequences,sequenceProbOutFname)
+
+        
 
     #attackerOutFname = str(parsed_log_file.partition("_u")[0])+"_a"
     attackerOutFname = str(outBaseFname.partition("_u")[0])+"_a"
