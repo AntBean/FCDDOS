@@ -14,9 +14,8 @@ from pyparsing import alphas,nums, dblQuotedString, Combine, Word, Group, \
 
 from progressbar import ProgressBar , Percentage, Bar
 from urlparse import urlparse
-from RequestSemanticModel import RequestGraph, Edge, Sequence
-from RequestSemanticModel import showSequencesProb
-from RequestSemanticModel import writeSequencesProbToFile
+import urllib
+from RequestSemanticModel import *
 import string
 import datetime
 import time
@@ -81,6 +80,8 @@ class ApacheLogParser:
         httpReqParsed = t[0].strip('"').split()
         method  = httpReqParsed[0]
         requestURI = httpReqParsed[1]
+        #decode percentage chars and remove if present with spaces
+        requestURI = str(urllib.unquote(requestURI)).split()[0]
         t["method"] = method
         t["requestURI"] = requestURI    
         #t["method"],t["requestURI"],t["protocolVersion"] = \
@@ -396,17 +397,27 @@ def evaluate(sessionTypes,R,outputStream,key):
 #process a single entyr log hash table that means
 # process the request for i ip address and calculates
 #NPra for it
-def processEntryLogHashTable(logHashTable,key,requestGraph,sequences):    
+def processEntryLogHashTable(logHashTable,key,\
+                                requestGraph,sequences,\
+                                fileRequestGraph,fileSequences
+                                ):
     global invalidNPraCount
     numValidUsers = 0
     
     #following variables will be used in creation of request graph
     parent = None
     child = None
+    
+    fileParent = None
+    fileChild = None
+
 
     #create sequence objets
     sequenceId = key
     sequence = Sequence(sequenceId)
+    
+    fileSequenceId = key
+    fileSequence = Sequence(fileSequenceId)
     
     #timestamp = parse_apache_date(logHashTable[key].timestamp.ts,\ 
                     #logHashTable[key].timestamp.tz)
@@ -449,12 +460,23 @@ def processEntryLogHashTable(logHashTable,key,requestGraph,sequences):
         #and if edge is ready then add to request graph also
         subDir = getSubDir(requestURI)
         sequence.append(subDir)
+        #getFileName
+        fileName = getFileName(requestURI)
+        fileSequence.append(fileName)
+
         if parent is None:
             parent = subDir
         else:
             child = subDir
             requestGraph.append(parent,child)
             parent = child
+        
+        if fileParent is None:
+            fileParent = fileName
+        else:
+            fileChild = fileName
+            fileRequestGraph.append(fileParent,fileChild)
+            fileParent = fileChild
 
 
         #if outputStatus is 1:
@@ -504,6 +526,11 @@ def processEntryLogHashTable(logHashTable,key,requestGraph,sequences):
             child = None
             sequences.append(sequence)
             sequence = Sequence(sequenceId)
+            
+            fileParent = None
+            fileChild = None
+            fileSequences.append(fileSequence)
+            fileSequence = Sequence(fileSequenceId)
 
     
         diff = request[0] - prevReqTs
@@ -559,6 +586,7 @@ def processEntryLogHashTable(logHashTable,key,requestGraph,sequences):
     else:
         #add the sequence to the sequences
         sequences.append(sequence)
+        fileSequences.append(fileSequence)
         numValidUsers += 1
         return numValidUsers
         
@@ -581,36 +609,73 @@ def getSubDir(requestURI):
         return subDir
 
 """
+ method to get filename from the request uri
+ this method will return the filename with complete path information
+"""
+def getFileName(requestURI):
+    parsedURI = urlparse(requestURI)
+    fileName = os.path.basename(parsedURI.path)
+    
+    #remove following from fileName if present
+    charsToRemove = ["%20","%22"]
+    for charToRemove in charsToRemove:
+        fileName = fileName.replace(charToRemove,"")
+    
+    if '.' in fileName:
+        #get the file name without extension
+        fileName = ".".join([ x for x in fileName.split('.')[:-1]])
+        #get the clean file extensions
+        fileEXTN = getFileEXTN(requestURI)
+        if '/' not in fileEXTN:
+            fileName = fileName+"."+fileEXTN
+
+    return os.path.join(os.path.dirname(parsedURI.path),fileName)
+
+
+"""
     method to get the file extension from the request uri
 """
 def getFileEXTN(requestURI):
     parsedURI = urlparse(requestURI)
     fileName = os.path.basename(parsedURI.path)
+    if len(fileName) ==0:
+        return '/'
 
     #remove following from fileName if present
     charsToRemove = ["%20","%22"]
     for charToRemove in charsToRemove:
         fileName = fileName.replace(charToRemove,"")
-    #partition remove the chars after % sign and % itself
+    #partition the chars after % sign and % itself
     #if % is present in the fileName
     fileName = fileName.split("%")[0]
     if '.' not in fileName:
-        return '/'
+        return 'misc'
     #get the file extension
     fileEXTN = fileName.split('.')[-1]
-    
+   
+    """
+    remove a bug to deocode hex chars or or partition the fileEXTN 
+    #paritiion the filename if hex ex:(\x23)  are present
+    #fileEXTN = fileName.split("\\x")[0]
+    fileEXTN = re.split("\\\\",fileEXTN)[0]
+    """
     #remove chars after the delimeter
     delimeters = ["~", "(", ")", ",", "\\"]
     for delimeter in delimeters:
         fileEXTN = fileEXTN.split(delimeter)[0]
-        
+
+    """
+    only return extensions which start starts char or digit
+    and have only char and digit in them, remove the extra part
+    """
+    matchResult = re.search("^[\da-zA-Z]+",fileEXTN)
+    if matchResult is None:
+        fileEXTN = 'misc'
+    else:
+        fileEXTN = matchResult.group()
     #convert to lowercase
     fileEXTN = fileEXTN.lower()
-
-    if len(fileEXTN) ==0:
-        return '/'
-    else:
-        return fileEXTN
+    return fileEXTN
 
 # parse commandline arguments
 def parseCmdArgs():
@@ -670,9 +735,17 @@ logHashTable = {}
 fileExtnAccessFrequencyTable = {}
 
 #Request Graph to hold edge counts and edge transitional probabilities
+#here nodes are sub directory names
 requestGraph = RequestGraph()
 #sequences to hold the request sequences    
 sequences = []
+
+#Request Graph to hold edge counts and edge transitional probabilities
+#here nodes are file names 
+fileRequestGraph = RequestGraph()
+#sequences to hold the request sequences    
+fileSequences = []
+
 
 alp = ApacheLogParser()
 
@@ -776,7 +849,9 @@ for key in logHashTable.keys():
     notInvalidNPra = True
     #process the reqeust for ip address = key
     resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key,\
-                                requestGraph,sequences)
+                                requestGraph,sequences,\
+                                fileRequestGraph,fileSequences\
+                                )
 
     if resultProcessEntryFunc == 0:
         # sort the request for this ip address and then call 
@@ -784,7 +859,9 @@ for key in logHashTable.keys():
         logHashTable[key].sort()
         # if still there is a error upate the invalidNPra value
         resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key,\
-                                    requestGraph,sequences)
+                                requestGraph,sequences,\
+                                fileRequestGraph,fileSequences\
+                                )
         if resultProcessEntryFunc == 0:
             notInvalidNPra = False
             invalidNPraCount += len(logHashTable[key])
@@ -800,14 +877,29 @@ for key in logHashTable.keys():
 
 #calculate edge transitional probabilites
 requestGraph.calculateEdgeTransitionalProb()
+fileRequestGraph.calculateEdgeTransitionalProb()
 #display the request graph
-requestGraph.show()
+#requestGraph.show()
+print "##################show user sequences##################"
+showSequences(fileSequences)
+print "##################show user sequences##################"
+
 #calculate sequences probabilites and show them
-print "sequence Probabilites"
 for sequence in sequences:
     sequence.calculateSequenceProb(requestGraph)
-    #print seq.getId(),"=",seq.getSequenceProb(),","
-showSequencesProb(sequences)
+
+for fileSequence in fileSequences:
+    fileSequence.calculateSequenceProb(fileRequestGraph)
+
+#create attacker sequences
+fileAttackerSequences = fileRequestGraph.getAttackerSequences()
+showSequences(fileAttackerSequences)
+dirAttackerSequences = requestGraph.getAttackerSequences()
+showSequences(dirAttackerSequences)
+
+#print "sequence Probabilites"
+#showSequencesProb(sequences)
+#showSequencesProb(fileSequences)
 
 #check attack parameter if they are valid or not
 #if min and max values are same, then set them appropriote values
@@ -839,7 +931,8 @@ print "total Invalid =",invalidFormatCount+invalidNPraCount
 TotalNumberAttacker =TotalNumberUser 
 outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
-         totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph]
+         totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph,\
+         fileSequences,fileRequestGraph]
 pickle.dump(outStats, open(outStatsFname,"wb"))
 
 statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
