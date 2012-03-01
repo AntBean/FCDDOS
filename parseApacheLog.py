@@ -135,7 +135,7 @@ class ApacheLogParser:
 def iSHumanGenerated(URI):
     # list of file names request that will be considered as 
     # human-generated
-    fileNames= ["htm","html","shtml","htmf","php","asp","/"]
+    fileNames= ["htm","html","shtml","htmf","php","asp","/","pdf"]
     for fname in fileNames:
         regx = fname + "$"
         if re.search(regx,URI):
@@ -489,8 +489,10 @@ def processEntryLogHashTable(logHashTable,key,\
             is using the system second time & create a seprate entry in the 
             parsed file for thisnew session
         """
-        totalSesTime = request[0]-startTs
-        if  totalSesTime.total_seconds() > args.max_full_session_time:
+        #totalSesTime = request[0]-startTs
+        maxSessionGap = request[0]-prevReqTs
+        #if  totalSesTime.total_seconds() > args.max_full_session_time:
+        if  maxSessionGap.total_seconds() > args.max_full_session_time:
             # since these are the last session of each type
             # & will not be added at the end of for loop
             # we have to add them here
@@ -763,6 +765,9 @@ f.seek(0,0)
 # intilize the progress bar
 readProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
         maxval=fileSize).start()
+
+prevRequestTs = None
+embeddedObject = False
 for line in f:
     #update the progress bar
     readProgBar.update(f.tell())
@@ -805,7 +810,15 @@ for line in f:
             
         # check if the request is human-generated or not
         # by verifying the requestURI
-        if iSHumanGenerated(parsedLogLine.requestURI):
+        if prevRequestTs is None:
+            prevRequestTs = parsedLogLine.timestamp
+        else:
+            diffTs = parsedLogLine.timestamp - prevRequestTs
+            if diffTs.total_seconds() < 3:
+                embeddedObject = True
+
+            
+        if iSHumanGenerated(parsedLogLine.requestURI) or (not embeddedObject):
             # we only add the human generated to the hashtable
             #logHashTable[parsedLogLine.ipAddr] = parsedLogLine
             if parsedLogLine.ipAddr not in logHashTable:
