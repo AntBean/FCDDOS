@@ -874,33 +874,11 @@ for key in logHashTable.keys():
         TotalNumberUser += resultProcessEntryFunc
         TotalNumberReq += len(logHashTable[key])
 
-
-#calculate edge transitional probabilites
-requestGraph.calculateEdgeTransitionalProb()
-fileRequestGraph.calculateEdgeTransitionalProb()
-#display the request graph
-#requestGraph.show()
-print "##################show user sequences##################"
+"""
+print "##################show file sequences starts##################"
 showSequences(fileSequences)
-print "##################show user sequences##################"
-
-#calculate sequences probabilites and show them
-for sequence in sequences:
-    sequence.calculateSequenceProb(requestGraph)
-
-for fileSequence in fileSequences:
-    fileSequence.calculateSequenceProb(fileRequestGraph)
-
-#create attacker sequences
-fileAttackerSequences = fileRequestGraph.getAttackerSequences()
-showSequences(fileAttackerSequences)
-dirAttackerSequences = requestGraph.getAttackerSequences()
-showSequences(dirAttackerSequences)
-
-#print "sequence Probabilites"
-#showSequencesProb(sequences)
-#showSequencesProb(fileSequences)
-
+print "##################show file sequences ends##################"
+"""
 #check attack parameter if they are valid or not
 #if min and max values are same, then set them appropriote values
 if minN1 == maxN1:

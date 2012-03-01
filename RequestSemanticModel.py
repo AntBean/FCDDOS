@@ -1,4 +1,5 @@
 import os, sys, random
+from progressbar import ProgressBar , Percentage, Bar
 
 #global variables
 MAX_ATTACKER_SEQUENCE_LENGTH = 1000
@@ -91,6 +92,15 @@ class Sequence:
         requestSequence = self.getRequestSequence()
         self.setSequenceProb(requestGraph.getSequenceProb(\
                                                           requestSequence))
+    """
+    method to calculate combined1 sequences probability using file level as 
+        well as directory level information
+        sequences must contain file level information
+    """
+    def calculateSequenceProbCombined1(self,dirRequestGraph,fileRequestGraph):
+        requestSequence = self.getRequestSequence()
+        self.setSequenceProb(fileRequestGraph.getSequenceProbCombined1(\
+                    requestSequence,dirRequestGraph))
 
     """
     method to return the request sequence
@@ -144,22 +154,36 @@ class RequestGraph:
                 self.requestGraph[parent][child] = Edge()
             else:
                 self.requestGraph[parent][child].incrementEdgeCount()
+    """
+        method to get the edge the transition prob
+    """
+    def getEdgeTransitionalProb(self,parent,child):
+        try:
+            return self.requestGraph[parent][child].getEdgeTransitionalProb()
+        except KeyError:
+            return self.noTransitionalProb
 
 
     """
     method to return the sum of edges count  from inputted parent node
     """
     def getSumOfEdgeCount(self,parent):
-        sum = 0
+        sumOfEdgeCount = 0
         for child in self.requestGraph[parent].keys():
-            sum += self.requestGraph[parent][child].getEdgeCount()
-            return sum
+            sumOfEdgeCount += self.requestGraph[parent][child].getEdgeCount()
+        return sumOfEdgeCount
 
     """
     method to calculate edge tranisional probabilities in the request graph   
     Note: Call it after when all edges are added to the request graph
     """
     def calculateEdgeTransitionalProb(self):
+        print "\n"
+        print "#############calculateEdgeTransitionalProb Started#############"
+        # intilize the progress bar
+        readProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+            maxval=len(self.requestGraph)).start()
+        status = 0
         for parent in self.requestGraph.keys():
             for child in self.requestGraph[parent].keys():
                 parentNode = self.requestGraph[parent]
@@ -169,7 +193,12 @@ class RequestGraph:
                 transitionalProb = float(edgeCount)/sumOfEdgeCount
                 transitionalProb = float(str(round(transitionalProb,2)))
                 edge.setEdgeTransitionalProb(transitionalProb)
+            #update the progress bar
+            status +=1
+            readProgBar.update(status)
 
+        print "#############calculateEdgeTransitionalProb Endeedd#############"
+        print "\n"
 
     """
     method to get sequence probability of the inputed sequence using the 
@@ -189,6 +218,34 @@ class RequestGraph:
                         /(1+len(transitionalProbs))
 
         return float(str(round(sequenceProb,2)))
+    
+    """
+    method to get sequence probability of the inputed sequence using the 
+    edge transitional probabilities information from the request graph
+    and from the dir request graph
+    """
+    def getSequenceProbCombined1(self,sequence,dirRequestGraph):
+        transitionalProbs = []
+        dirEdgeTransitionalProbs = []
+        for i in range(len(sequence)-1):
+            parent = sequence[i]
+            child = sequence[i+1]
+            #get parent,child for dir request graph
+            dirParent = str(str(os.path.dirname(parent)))
+            dirChild = str(str(os.path.dirname(child)))
+            
+            edgeTP =self.getEdgeTransitionalProb(parent,child)  
+            dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(\
+                    dirParent,dirChild)  
+
+            transitionalProbs.append(edgeTP*dirEdgeTP)
+            dirEdgeTransitionalProbs.append(dirEdgeTP)
+                
+        combined1SequenceProb = float(self.firstPageVisitedProb+\
+                sum(transitionalProbs))/\
+                (1+len(dirEdgeTransitionalProbs))
+
+        return float(str(round(combined1SequenceProb,2)))
 
     """
     method to show the request graph
@@ -206,7 +263,9 @@ class RequestGraph:
     method to get the attacker sequence, generated
     using the nodes in the request graph
     """
-    def getAttackerSequences(self):
+    def getAttackerSequences(self,numberOfAttackers):
+        print "\n"
+        print "#############getAttackerSequences Started###############"
         """
         numberOfSequecefactor will affect the number of sequences
         that we will be generated
@@ -220,9 +279,22 @@ class RequestGraph:
         #get the list of nodes equally weighted
         equallyWeightedNodeList = [key for key in self.requestGraph]
         #get the number of attacker sequences to generate
+        """
         numberOfAttackerSequences = (len(equallyWeightedNodeList) <<\
                                      numberOfSequenceFactor\
                                     )
+        """
+        #Note: due to a bug in xls sheet library we can
+        #have maximum 65535 sequences, but for safety we 
+        #will return only return 65000 sequences
+        numberOfAttackerSequences = numberOfAttackers
+        if numberOfAttackerSequences > 65000:
+            numberOfAttackerSequences = 65000
+        
+        # intilize the progress bar
+        readProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+            maxval=numberOfAttackerSequences).start()
+
         for i in range(numberOfAttackerSequences):
             #now get the list of random Sequnce objects with random seq len
             randomSequenceLength = random.randint(MIN_ATTACKER_SEQUENCE_LENGTH,
@@ -242,8 +314,50 @@ class RequestGraph:
                 attackerSeq.append(random.choice(equallyWeightedNodeList))
             #append the seq to the attackerSequences
             attackerSequences.append(attackerSeq)
-
+            
+            #update the progress bar
+            readProgBar.update(i+1)
+        
+        print "#############getAttackerSequences Ended###############"
+        print "\n"
         return attackerSequences
+    """
+    method to write the request Graph to the file
+    """
+    def writeToFile(self,fileName):
+        space = " "
+        colWidth = 64
+        colWidth2 = 16
+        try:
+            requestGraphOutStream = open(fileName,"w")
+        except:
+            print "Error Opening request graph output file: ",fileName
+
+        #first write header    
+        header = "ParentNode"+colWidth*space+"ChildNode"+\
+                +colWidth*space+"EdgeCount"\
+                +colWidth2*space+"EdgeTransitionalProb\n"
+        requestGraphOutStream.write(header)
+
+        for parent in self.requestGraph.keys():
+            parentOutString = str(parent)+"\n"
+            requestGraphOutStream.write(parentOutString)
+            startPosition = ((len("ParentNode")+colWidth)*space)
+            for child in self.requestGraph[parent].keys():
+                edge = self.requestGraph[parent][child]
+                edgeCount = str(edge.getEdgeCount())
+                edgeTransitionalProb = str(edge.getEdgeTransitionalProb())
+
+                edgeOutString = startPosition+str(child)+\
+                        ((len("ChildNode")-len(str(child)))+colWidth)*space+\
+                        edgeCount+\
+                        ((len("EdgeCount")-len(edgeCount))+colWidth2)*space+\
+                        edgeTransitionalProb+"\n"
+                
+                requestGraphOutStream.write(edgeOutString)
+            #leave two lines after one parent data
+            requestGraphOutStream.write("\n\n")
+
 
 """
 funtion which takes ip and returns incremented ip

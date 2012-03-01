@@ -1,6 +1,5 @@
 import os,sys,argparse,pickle
 import math, xlwt
-from RequestSemanticModel import writeSequencesProbToFile
 # parse commandline arguments
 def parseCmdArgs():
     desc = "runExperiment for request dynamics model"
@@ -24,10 +23,18 @@ def parseCmdArgs():
 #parse commandlist arguments    
 args = parseCmdArgs()
 
-#create the output directory 
+outputDir = os.path.join(args.outdir,"requestDynamicsModel")
+parsedDir = os.path.join(args.outdir,"parsed")
+#create the parsed directory to hold parsed output parseApache.py
 #if already exits, then use it don't recreate it
 try:
-    os.mkdir(args.outdir,0777)
+    os.mkdir(parsedDir,0777)
+except OSError:
+    None
+#create the output  directory to hold request dynamic results
+#if already exits, then use it don't recreate it
+try:
+    os.mkdir(outputDir,0777)
 except OSError:
     None
 
@@ -38,8 +45,6 @@ wsfn = wb.add_sheet('FalseNegatives')
 wsbotcount = wb.add_sheet('NumberOfBots')
 wsfileExtnAccessFrequency = wb.add_sheet('fileExtnAccessFrequency')
 wsMinMBDetails = wb.add_sheet('minMBDetails')
-wsSequencesProb = wb.add_sheet('sequencesProb')
-wsFileSequencesProb = wb.add_sheet('fileSequencesProb')
  
 
 models = []
@@ -49,22 +54,15 @@ if (args.unparsed_log_files is None) and (args.parsed_log_files is None):
 if args.unparsed_log_files:
     args.parsed_log_files = []
     for unparsed_log_file in args.unparsed_log_files:
-        parsed_log_file = os.path.join(args.outdir,os.path.basename(unparsed_log_file)+
+        parsed_log_file = os.path.join(parsedDir,os.path.basename(unparsed_log_file)+
                                         "_u")
         args.parsed_log_files.append(parsed_log_file)
         parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
-                            " -o "+args.outdir
+                            " -o "+parsedDir
         print "parsed out file: ",parsed_log_file
         print "Parse apache command: ", parseApacheCommand
         os.system(parseApacheCommand)
 
-#intiliazed data for sequencesProb sheet
-wsSequencesProb.write(0,0,"sequenceID")
-wsSequencesProb.write(0,1,"sequenceProb")
-wsSequencesProb.write(0,2,"sequenceLength")
-wsFileSequencesProb.write(0,0,"sequenceID")
-wsFileSequencesProb.write(0,1,"sequenceProb")
-wsFileSequencesProb.write(0,2,"sequenceLength")
 
 #intiliazed data for file access frequency sheet
 wsfileExtnAccessFrequency.write(0, 0, "ID")
@@ -172,7 +170,7 @@ for parsed_log_file in args.parsed_log_files:
         None
 
 for parsed_log_file in args.parsed_log_files:
-    outBaseFname = os.path.join(args.outdir,os.path.basename(parsed_log_file))
+    outBaseFname = os.path.join(outputDir,os.path.basename(parsed_log_file))
     statsFname = parsed_log_file+"_pickle"
     print "stats file name: ",statsFname
 
@@ -211,10 +209,6 @@ for parsed_log_file in args.parsed_log_files:
     invalidNPraCount = outStats[12]
     totalLogCount = outStats[13]
     fileExtnAccessFrequencyTable = outStats[14]
-    sequences = outStats[15]
-    requestGraph = outStats[16]
-    fileSequences = outStats[17]
-    fileRequestGraph = outStats[18]
 
     #update TotalNumberOfAttacker
     TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
@@ -248,31 +242,6 @@ for parsed_log_file in args.parsed_log_files:
     """
     print "#######################file access frequecy########################"
 
-    #write dir sequence probability data to the report file
-    wsSequencesProbRow = 1
-    for sequence in sequences:
-        wsSequencesProb.write(wsSequencesProbRow,0,sequence.getId())
-        wsSequencesProb.write(wsSequencesProbRow,1,sequence.getSequenceProb())
-        wsSequencesProb.write(wsSequencesProbRow,2,sequence.getSequenceLength())
-        wsSequencesProbRow += 1
-    #write sequence probability data to the text Log file
-    sequenceProbOutFname = str(outBaseFname.partition("_u")[0])+".SequenceProb"
-    writeSequencesProbToFile(sequences,sequenceProbOutFname)
-    
-    #write file sequence probability data to the report file
-    wsFileSequencesProbRow = 1
-    for fileSequence in fileSequences:
-        wsFileSequencesProb.write(wsFileSequencesProbRow,0,\
-                fileSequence.getId())
-        wsFileSequencesProb.write(wsFileSequencesProbRow,1,\
-                fileSequence.getSequenceProb())
-        wsFileSequencesProb.write(wsFileSequencesProbRow,2,\
-                fileSequence.getSequenceLength())
-        wsFileSequencesProbRow += 1
-    #write fileSequence probability data to the text Log file
-    fileSequenceProbOutFname = str(outBaseFname.partition("_u")[0])+".FileSequenceProb"
-    writeSequencesProbToFile(fileSequences,fileSequenceProbOutFname)
-
         
 
     #attackerOutFname = str(parsed_log_file.partition("_u")[0])+"_a"
@@ -290,14 +259,14 @@ for parsed_log_file in args.parsed_log_files:
     #split user set into train & test set
     splitIntoTrTeSetCmd1 ="python splitinto_train_test.py -i "+\
                         parsed_log_file+\
-                        " -o "+args.outdir+" -r"
+                        " -o "+outputDir+" -r"
     print "splitIntoTrTeSetCmd1: ",splitIntoTrTeSetCmd1
     os.system(splitIntoTrTeSetCmd1)
 
     #split attacker set into train & test set
     splitIntoTrTeSetCmd2 ="python splitinto_train_test.py -i "+\
                         attackerOutFname+\
-                        " -o "+args.outdir+" -r"
+                        " -o "+outputDir+" -r"
     print "splitIntoTrTeSetCmd2: ",splitIntoTrTeSetCmd2
     os.system(splitIntoTrTeSetCmd2)
 
@@ -501,7 +470,8 @@ for misclassificationFname in misclassificationFiles:
         row+=1
 try:    
     #wb.save('report.xls')
-    wb.save(os.path.join(args.outdir,os.path.basename('reports.xls')))
+    wb.save(os.path.join(outputDir,os.path.basename(\
+                    'requestDynamicsReports.xls')))
 except Exception as e:
     print e.args
     print e
