@@ -60,7 +60,7 @@ if args.unparsed_log_files:
         print "Parse apache command: ", parseApacheCommand
         os.system(parseApacheCommand)
 
-
+olderDataSets = []
 for parsed_log_file in args.parsed_log_files:
     outBaseFname = os.path.join(outputDir,os.path.basename(parsed_log_file))
     outBaseFname = str(outBaseFname.partition("_u")[0])
@@ -103,6 +103,11 @@ for parsed_log_file in args.parsed_log_files:
     headerRow = 0
     headerCol = 1
     for parsedLogFname in args.parsed_log_files:
+        """
+        we don't test when the test data is older than train data
+        """
+        if parsedLogFname in olderDataSets:
+            continue
         testSetFname = parsedLogFname+"_pickle"
         #open the test set pickle file
         testSetPickleStream = None
@@ -310,14 +315,20 @@ for parsed_log_file in args.parsed_log_files:
         combined1UserSPLogFname = startTestLogFname+".combined1UserSP.log"
         combined1AttackerSPLogFname = startTestLogFname+".combined1AttackerSP.log"
         writeSequencesProbToFile(dirTestSequences, dirUserSPLogFname)
-        writeSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
+        #writeSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
+        writeAttackerSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
         writeSequencesProbToFile(fileTestSequences, fileUserSPLogFname)
-        writeSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
+        #writeSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
+        writeAttackerSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
         writeSequencesProbToFile(combined1TestSequences, combined1UserSPLogFname)
-        writeSequencesProbToFile(combined1TestAttackerSequences,\
+        #writeSequencesProbToFile(combined1TestAttackerSequences,\
+        #        combined1AttackerSPLogFname)
+        writeAttackerSequencesProbToFile(combined1TestAttackerSequences,\
                 combined1AttackerSPLogFname)
         print "#############Writing data to log file Ended###############"
         
+    #add this file to olderDataSets
+    olderDataSets.append(parsed_log_file)
 
 try:    
     #wb.save('report.xls')

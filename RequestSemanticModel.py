@@ -43,6 +43,67 @@ def writeSequencesProbToFile(sequences, fileName):
             seqProbOutStream.write(requestOutString)
 
 """
+method to write attackersequeces probabilities to the text file
+"""
+def writeAttackerSequencesProbToFile(sequences, fileName):
+    space = " "
+    colWidth = 16
+    MAX_ATTACKER_SEQUENCES = 50
+    MAX_ATT_SEQ_PER_RANGE = 10
+
+    try:
+        seqProbOutStream = open(fileName,"w")
+    except:
+        print "Error Opening sequence prob output file: ",fileName
+
+    #first write header    
+    header = "SequenceId"+colWidth*space+"SequenceProb"+\
+            +colWidth*space+"SequenceLength"\
+            +colWidth*space+"RequestSequence\n"
+    seqProbOutStream.write(header)
+
+    rangeCounts = [0,0,0,0,0]
+    numOfAttSeq = 0
+    for sequence in sequences:
+        sequenceId = str(sequence.getId())
+        sequenceProb = str(sequence.getSequenceProb())
+        
+        if numOfAttSeq >=MAX_ATTACKER_SEQUENCES:
+            return
+        if rangeCounts[0] < MAX_ATT_SEQ_PER_RANGE and float(sequenceProb) < 0.2:
+            rangeCounts[0] += 1
+        elif rangeCounts[1] < MAX_ATT_SEQ_PER_RANGE and (\
+                float(sequenceProb) >= 0.2 and float(sequenceProb) < 0.4):
+            rangeCounts[1] += 1 
+        elif rangeCounts[2] < MAX_ATT_SEQ_PER_RANGE and (\
+                float(sequenceProb) >= 0.4 and float(sequenceProb) < 0.6):
+            rangeCounts[2] += 1
+        elif rangeCounts[3] < MAX_ATT_SEQ_PER_RANGE and (\
+                float(sequenceProb) >= 0.6 and float(sequenceProb) < 0.8):
+            rangeCounts[3] += 1
+        elif rangeCounts[2] < MAX_ATT_SEQ_PER_RANGE and (\
+                float(sequenceProb) >= 0.8 and float(sequenceProb) < 1.0):
+            rangeCounts[4] += 1
+        else:
+            continue
+        numOfAttSeq += 1
+        sequenceLength = str(sequence.getSequenceLength())
+        outString = sequenceId+\
+                ((len("sequenceId")-len(sequenceId))+colWidth)*space+\
+                sequenceProb+\
+                ((len("sequenceProb")-len(sequenceProb))+colWidth)*space+\
+                sequenceLength+\
+                ((len("sequenceLength")-len(sequenceLength))+colWidth)*space+\
+                "\n"
+
+        seqProbOutStream.write(outString)
+        #now write request for this sequence
+        startPosition = (len(outString)+4)*space
+        for request in sequence.getRequestSequence():
+            requestOutString = startPosition+str(request)+"\n"
+            seqProbOutStream.write(requestOutString)
+
+"""
 method to show the sequences
 """
 def showSequences(sequences):
