@@ -459,10 +459,8 @@ def processEntryLogHashTable(logHashTable,key,\
         #get sub-dir and append it to the sequence
         #and if edge is ready then add to request graph also
         subDir = getSubDir(requestURI)
-        sequence.append(subDir)
         #getFileName
         fileName = getFileName(requestURI)
-        fileSequence.append(fileName)
 
         if parent is None:
             parent = subDir
@@ -523,15 +521,15 @@ def processEntryLogHashTable(logHashTable,key,\
             startTs = request[0]
             R = 0
 
-            #also reintilize the data for the request graph and sequences
+            #append the sequences
+            sequences.append(sequence)
+            fileSequences.append(fileSequence)
+            #also reintilize the data for the request graph and sequences            
             parent = None
             child = None
-            sequences.append(sequence)
-            sequence = Sequence(sequenceId)
-            
             fileParent = None
             fileChild = None
-            fileSequences.append(fileSequence)
+            sequence = Sequence(sequenceId)
             fileSequence = Sequence(fileSequenceId)
 
     
@@ -566,6 +564,10 @@ def processEntryLogHashTable(logHashTable,key,\
         #sessionType2.append(request.timestamp)
         #sessionType3.append(request.timestamp)
         prevReqTs = request[0]
+        
+        #add request to the sequences
+        sequence.append(subDir)
+        fileSequence.append(fileName)
    
 
     # since these are the last session of each type
