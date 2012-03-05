@@ -1,6 +1,10 @@
 import os,sys,argparse,pickle
 import math, xlwt
 from RequestSemanticModel import *
+from operator import itemgetter
+import copy
+
+
 # parse commandline arguments
 def parseCmdArgs():
     desc = "runExperiment for request dynamics model"
@@ -42,7 +46,33 @@ except OSError:
 wbDirSP = xlwt.Workbook()
 wbFileSP = xlwt.Workbook()
 wbCombined1SP = xlwt.Workbook()
- 
+#workbook for capturing testing results
+wbTestRes = xlwt.Workbook()
+wsfp = wbTestRes.add_sheet('FalsePositives')
+wsfn = wbTestRes.add_sheet('FalseNegatives')
+wsbotcount = wbTestRes.add_sheet('NumberOfBots')
+wsMinMBDetails = wbTestRes.add_sheet('minMBDetails')
+#add header data to the sheet test results sheets
+wsMinMBDetails.write(0,0,"trnSet")
+wsMinMBDetails.write(0,1,"method")
+wsMinMBDetails.write(0,2,"threshold")
+wsMinMBDetails.write(0,3,"tstSet")
+wsMinMBDetails.write(0,4,"minMB")
+wsMinMBDetails.write(0,5,"minMBId")
+wsMinMBDetails.write(0,6,"minMBLen")
+wsfp.write(0,0,"trnSet")
+wsfp.write(0,1,"method")
+wsfp.write(0,2,"threshold")
+wsfn.write(0,0,"trnSet")
+wsfn.write(0,1,"method")
+wsfn.write(0,2,"threshold")
+wsbotcount.write(0,0,"trnSet")
+wsbotcount.write(0,1,"method")
+wsbotcount.write(0,2,"threshold")
+testResRow = 0
+wsMinMBDetRow = 0
+
+
 models = []
 testingSets = []
 
@@ -76,22 +106,38 @@ for parsed_log_file in args.parsed_log_files:
     outStats = pickle.load(pickleStream)
     #print "outStats: ", outStats
     
+    dirTrainSequences = outStats[15]
     dirRequestGraph = outStats[16]
+    fileTrainSequences = outStats[17]
     fileRequestGraph = outStats[18]
+    combined1TrainSequences = copy.deepcopy(fileTrainSequences)
     
     trnSetId = str(os.path.basename(outBaseFname))
    
     #calculate edge transitional probabilites: generate model data
     dirRequestGraph.calculateEdgeTransitionalProb()
     fileRequestGraph.calculateEdgeTransitionalProb()
+
+    #get 4 thresholds for experimental purpose
+    dirThresholds=getThresholds(dirRequestGraph,dirTrainSequences)
+    fileThresholds=getThresholds(fileRequestGraph,fileTrainSequences)
+    combined1Thresholds=getThresholdsCombined1(dirRequestGraph,fileRequestGraph,
+            combined1TrainSequences)
+    #print "dirThresholds",dirThresholds
+    #print "fileThresholds",fileThresholds
+    #print "combined1Thresholds",combined1Thresholds
+    
     #display the request graph
     #print "##############dir Request Graph Starts#############" 
     #fileRequestGraph.show()
     #print "##############dir Request Graph Ends#############" 
 
+
     #write models to log file
-    dirRequestGraphLogFname = outBaseFname+".model.log"
+    dirRequestGraphLogFname = outBaseFname+".dirmodel.log"
+    fileRequestGraphLogFname = outBaseFname+".filemodel.log"
     dirRequestGraph.writeToFile(dirRequestGraphLogFname)
+    fileRequestGraph.writeToFile(fileRequestGraphLogFname)
 
     #add sheets to capture test results for this model
     wsDirSP = wbDirSP.add_sheet(trnSetId)
@@ -102,6 +148,11 @@ for parsed_log_file in args.parsed_log_files:
     wsCombined1SP.write(0,0,"DataSetId")
     headerRow = 0
     headerCol = 1
+    
+    testResRow += 1
+    testResCol = 3
+    wsMinMBDetRow += 1
+   
     for parsedLogFname in args.parsed_log_files:
         """
         we don't test when the test data is older than train data
@@ -139,9 +190,9 @@ for parsed_log_file in args.parsed_log_files:
         create sequences for combined1 formula
         these are just copy of fileTestSequences
         """
-        combined1TestSequences = list(fileTestSequences)
-        combined1TestAttackerSequences = list(fileTestAttackerSequences)
-
+        combined1TestSequences = copy.deepcopy(fileTestSequences)
+        combined1TestAttackerSequences = copy.deepcopy(fileTestAttackerSequences)
+        
          
 
         testSetId = str(str(os.path.basename(testSetFname)).split("_")[0])+"te"
@@ -219,6 +270,21 @@ for parsed_log_file in args.parsed_log_files:
             calSPProgBar.update(CalSPProgBarStartStatus)
         print "#############Calculating Seq Prog  Ended###############"
         print "\n"
+
+        print "#################TestingSequences starts##################"
+        dirTestResults = testSequences(dirRequestGraph,dirTestSequences,\
+                dirTestAttackerSequences,dirThresholds)
+        fileTestResults = testSequences(fileRequestGraph,fileTestSequences,\
+                fileTestAttackerSequences,fileThresholds)
+        combined1TestResults = testSequencesCombined1(dirRequestGraph,\
+                fileRequestGraph,combined1TestSequences,\
+                combined1TestAttackerSequences,combined1Thresholds)
+        """
+        print "dirTestResults: "
+        for tdict in dirTestResults:
+            print sorted(tdict.iteritems(),key=itemgetter(0),reverse=True)
+        """
+        print "#################TestingSequences Ends####################"
 
         print "#############Writing data to report file Started###############"
         #write test results: seq prob to report files
@@ -304,6 +370,61 @@ for parsed_log_file in args.parsed_log_files:
         headerCol +=7
         print "#############Writing data to report file Ended###############"
         print "\n"
+        
+        #write test results to the xls sheet
+        if testResCol ==3:
+            wsfp.write(testResRow, 0, trnSetId)
+            wsfn.write(testResRow, 0, trnSetId)
+            wsbotcount.write(testResRow, 0, trnSetId)
+        if testResRow ==1:
+            wsfp.write(0, testResCol, testSetId)
+            wsfn.write(0, testResCol, testSetId)
+            wsbotcount.write(0, testResCol, testSetId)
+        testResultsIndex = 0
+        for testResults in [dirTestResults,fileTestResults,\
+            combined1TestResults]:
+            methodName = None
+            thresholds = None
+            if testResultsIndex ==0:
+                methodName = "dir"
+                thresholds = dirThresholds
+            elif testResultsIndex ==1:
+                methodName = "file"
+                thresholds = fileThresholds
+            elif testResultsIndex ==2:
+                methodName = "combined1"
+                thresholds = combined1Thresholds
+            else:
+                print "invalid method name"
+                exit(0)
+            for threshold in thresholds:
+                wsfp.write(testResRow, 1, methodName)
+                wsfp.write(testResRow, 2, str(threshold))
+                wsfn.write(testResRow, 1, methodName)
+                wsfn.write(testResRow, 2, str(threshold))
+                wsbotcount.write(testResRow, 1, methodName)
+                wsbotcount.write(testResRow, 2, str(threshold))
+    
+                wsfp.write(testResRow, testResCol, str(testResults[0][threshold]))
+                wsfn.write(testResRow, testResCol, str(testResults[1][threshold]))
+                wsbotcount.write(testResRow, testResCol,\
+                        str(testResults[2][threshold][0]))
+
+                wsMinMBDetails.write(wsMinMBDetRow,0,trnSetId)
+                wsMinMBDetails.write(wsMinMBDetRow,1,methodName)
+                wsMinMBDetails.write(wsMinMBDetRow,2,threshold)
+                wsMinMBDetails.write(wsMinMBDetRow,3,testSetId)
+                wsMinMBDetails.write(wsMinMBDetRow,4,\
+                        str(testResults[2][threshold][0]))
+                wsMinMBDetails.write(wsMinMBDetRow,5,\
+                        str(testResults[2][threshold][1]))
+                wsMinMBDetails.write(wsMinMBDetRow,6,\
+                        str(testResults[2][threshold][2]))
+                wsMinMBDetRow +=1
+
+                testResRow +=1
+            testResultsIndex +=1
+        testResCol+=1
 
         #write test resutl to log files
         print "#############Writing data to log file Started###############"
@@ -314,21 +435,59 @@ for parsed_log_file in args.parsed_log_files:
         fileAttackerSPLogFname = startTestLogFname+".fileAttackerSP.log"
         combined1UserSPLogFname = startTestLogFname+".combined1UserSP.log"
         combined1AttackerSPLogFname = startTestLogFname+".combined1AttackerSP.log"
+        
+        
+
         writeSequencesProbToFile(dirTestSequences, dirUserSPLogFname)
-        #writeSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
-        writeAttackerSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
+        writeSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
+        #writeAttackerSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
         writeSequencesProbToFile(fileTestSequences, fileUserSPLogFname)
-        #writeSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
-        writeAttackerSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
+        writeSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
+        #writeAttackerSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
         writeSequencesProbToFile(combined1TestSequences, combined1UserSPLogFname)
-        #writeSequencesProbToFile(combined1TestAttackerSequences,\
-        #        combined1AttackerSPLogFname)
-        writeAttackerSequencesProbToFile(combined1TestAttackerSequences,\
+        writeSequencesProbToFile(combined1TestAttackerSequences,\
                 combined1AttackerSPLogFname)
+        #writeAttackerSequencesProbToFile(combined1TestAttackerSequences,\
+        #        combined1AttackerSPLogFname)
+        
+        #write classification result to text file
+        logDataList = [[dirThresholds,dirTestSequences,\
+                      dirTestAttackerSequences],\
+                      [fileThresholds,fileTestSequences,\
+                      fileTestAttackerSequences],\
+                      [combined1Thresholds,combined1TestSequences,\
+                      combined1TestAttackerSequences]\
+                      ]
+        #logDataListIndex = 0
+        for logDataListIndex in range(len(logDataList)):
+            methodName = None
+            logData = logDataList[logDataListIndex]
+            if logDataListIndex == 0:
+                methodName = "dir"
+            elif logDataListIndex == 1:
+                methodName = "file"
+            elif logDataListIndex == 2:
+                methodName = "combined1"
+            for logDataThreshold in logData[0]:
+                testResUserLogFname = startTestLogFname+"."+methodName+\
+                                      ".User"+str(logDataThreshold)+".classification"
+                testResAttackerLogFname = startTestLogFname+"."+methodName+\
+                                      ".Attacker"+str(logDataThreshold)+".classification"
+                writeSeqClassificationToFile(logData[1],\
+                        testResUserLogFname,logDataThreshold)
+                writeSeqClassificationToFile(logData[2],\
+                        testResAttackerLogFname,logDataThreshold)
+            logDataListIndex += 1
         print "#############Writing data to log file Ended###############"
         
     #add this file to olderDataSets
     olderDataSets.append(parsed_log_file)
+    
+    """
+    for now we will train only with first data set and test with itself and 
+    rest
+    """
+    break;
 
 try:    
     #wb.save('report.xls')
@@ -338,6 +497,8 @@ try:
                     'fileSeqProb.xls')))
     wbCombined1SP.save(os.path.join(outputDir,os.path.basename(\
                     'combined1SeqProb.xls')))
+    wbTestRes.save(os.path.join(outputDir,os.path.basename(\
+                    'testResult.xls')))
 except Exception as e:
     print e.args
     print e

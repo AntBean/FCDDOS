@@ -2,7 +2,12 @@ from xlrd import open_workbook, empty_cell
 import xlrd
 import os,sys,argparse
 from CreateChart import CreateDotChart
+from CreateChart import CreateLineChart
 from collections import defaultdict
+from array import array
+import numpy as np
+from numpy import cumsum
+import operator
 """
 input must be only 3 typesof dirSP,fileSP,Combined#SP
 """
@@ -66,7 +71,7 @@ def processSheetData(sheet,wbOutputDir,col):
     #write sequence prov vs lendth data to the dot chart
     chartData=[userData,attackerData]
     CreateDotChart(chartName,chartData,xLable,yLable,chartTitle)
-    
+    """ 
     #prepare the cdf data and write it to the cdf chart
     chartCDFName = chartName+"CDF"
     chartCDFTitle = "SeqProb CDF"+" "+trainSetName+"_"+testSetName
@@ -96,8 +101,64 @@ def processSheetData(sheet,wbOutputDir,col):
     attackerCDFData[2] = [float(y)/sumOfyAxisData for y in yAxisData]
     
     chartCDFData = [userCDFData,attackerCDFData]
-    CreateDotChart(chartCDFName,chartCDFData,xCDFLable,yCDFLable,chartCDFTitle)
-        
+    CreateLineChart(chartCDFName,chartCDFData,xCDFLable,yCDFLable,chartCDFTitle)
+    """    
+    #prepare the cdf data and write it to the cdf chart
+    chartCDFName = chartName+"CDF"
+    chartCDFTitle = "SeqProb CDF"+" "+trainSetName+"_"+testSetName
+    xCDFLable = "SeqProb"
+    yCDFLable = "SeqProbFreq"
+    userCDFData = [trainSetName+"User",[],[]]
+    attackerCDFData = [trainSetName+"Attacker",[],[]]
+    chartCDFData = []
+    
+    userxAxisData = []
+    useryAxisData = []
+    sortedUserRankData = sorted(userSeqProbFreq.iteritems(),\
+            key=operator.itemgetter(1), reverse=True)
+    userxAxisData = [key for key,value in sortedUserRankData]
+    userProbRank = [value for key,value in sortedUserRankData]
+    """
+    #calculate cdf
+    userProbRankCDF = []
+    for i in range(len(userProbRank)):
+        csum = 0
+        for j in range(i,len(userProbRank)):
+            csum +=userProbRank[j]
+        userProbRankCDF.append(csum)
+    userProbRank = userProbRankCDF
+    """
+    useryAxisData = [float(d)/sum(userProbRank) for d in userProbRank]
+    useryAxisData = cumsum(useryAxisData)
+    print useryAxisData
+    userCDFData[1] = userxAxisData
+    userCDFData[2]  = useryAxisData
+    
+    attackerxAxisData = []
+    attackeryAxisData = []
+    sortedAttackerRankData = sorted(attackerSeqProbFreq.iteritems(),\
+            key=operator.itemgetter(1), reverse=True)
+    attackerxAxisData = [key for key,value in sortedAttackerRankData]
+    attackerProbRank = [value for key,value in sortedAttackerRankData]
+    """
+    #calculate cdf
+    attackerProbRankCDF = []
+    for i in range(len(attackerProbRank)):
+        csum = 0
+        for j in range(i,len(attackerProbRank)):
+            csum +=attackerProbRank[j]
+        attackerProbRankCDF.append(csum)
+    attackerProbRank = attackerProbRankCDF
+    """
+    attackeryAxisData = [float(d)/sum(attackerProbRank) for d in attackerProbRank]
+    attackeryAxisData = cumsum(attackeryAxisData)
+    print attackeryAxisData
+    attackerCDFData[1] = attackerxAxisData
+    attackerCDFData[2]  = attackeryAxisData
+    
+    
+    chartCDFData = [userCDFData,attackerCDFData]
+    CreateLineChart(chartCDFName,chartCDFData,xCDFLable,yCDFLable,chartCDFTitle)
     #process next test results in this sheet
     processSheetData(sheet,wbOutputDir,col+7)
      

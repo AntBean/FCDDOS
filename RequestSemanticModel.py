@@ -1,10 +1,54 @@
 import os, sys, random
 from progressbar import ProgressBar , Percentage, Bar
+from collections import defaultdict
+from operator import itemgetter
 
 #global variables
 MAX_ATTACKER_SEQUENCE_LENGTH = 1000
 MIN_ATTACKER_SEQUENCE_LENGTH = 2
 FIRST_ATTACKER_IP = "194.0.0.1"
+VALID_METHOD_NAMES = ["dir","file","combined1"]
+TOTAL_10MINUTE_ATTACK_REQUEST = 600000
+"""
+method to write sequeces classification to the text file for the threshold value
+"""
+def writeSeqClassificationToFile(sequences, fileName,threshold):
+    print "#################writeSeqClassificationTofile Started############"
+    space = " "
+    colWidth = 16
+    try:
+        seqProbOutStream = open(fileName,"w")
+    except:
+        print "Error Opening sequence prob output file: ",fileName
+
+    #first write header    
+    header = "SequenceId"+colWidth*space+"prediction\n"
+    seqProbOutStream.write(header)
+    
+    # intilize the progress bar
+    writeSeqProgBarEndStatus = len(sequences)
+    writeSeqProgBarStartStatus = 0
+    writeSeqProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+            maxval=writeSeqProgBarEndStatus).start()
+
+    for sequence in sequences:
+        sequenceId = str(sequence.getId())
+        predictedClass = "User"
+        try:
+            if sequence.getTestResults()[threshold][0]:
+                predictedClass = "Attacker"
+        except:
+            print sequence.getTestResults()
+            raise
+        outString = sequenceId+\
+                ((len("sequenceId")-len(sequenceId))+colWidth)*space+\
+                predictedClass+"\n"
+
+        seqProbOutStream.write(outString)
+        #update the progress bar
+        writeSeqProgBarStartStatus += 1
+        writeSeqProgBar.update(writeSeqProgBarStartStatus)
+    print "#################writeSeqClassificationTofile Ended############"
 
 """
 method to write sequeces probabilities to the text file
@@ -126,12 +170,192 @@ def showSequencesProb(sequences):
         sequenceProb = sequences[index].getSequenceProb()
         print "["+str(sequenceId)+"]="+str(sequenceProb)+","+\
                 str(sequences[index].getSequenceLength())
+"""
+method to caculate thresholds
+"""
+def getThresholds(requestGraph,sequences):
+    seqProb = []
+    for seq in sequences:
+        seq.calculateSequenceProb(requestGraph)
+        seqProb.append(round(seq.getSequenceProb(),2))
+    return calculateThresholds(seqProb)
+
+"""
+method to calculate threshold for combined1 forumula
+"""
+def getThresholdsCombined1(dirRequestGraph,fileRequestGraph,sequences):
+    seqProb = []
+    for seq in sequences:
+        seq.calculateSequenceProbCombined1(dirRequestGraph, fileRequestGraph)
+        seqProb.append(round(seq.getSequenceProb(),2))
+    return calculateThresholds(seqProb)
+
+"""
+method to calculate 4 thresholds and return them
+"""
+def calculateThresholds(seqProb):
+    thresholds = []
+    seqProb.sort()
+    #first threshold is the lowest legitimate seq prob means: 0 % FP
+    firstThreshold = seqProb[0]
+    thresholds.append(firstThreshold)
+    #second threshold is when 2% FP
+    secondThreshold = seqProb[int((len(seqProb)*2)/100)]
+    if secondThreshold not in thresholds:
+        thresholds.append(secondThreshold)
+    else:
+        secondThreshold = findGreaterSeqProb(firstThreshold,seqProb)
+        if secondThreshold is not None:
+            thresholds.append(secondThreshold)
+    #third threshold is when 3% FP
+    thirdThreshold = seqProb[int((len(seqProb)*2)/100)]
+    if thirdThreshold not in thresholds:
+        thresholds.append(thirdThreshold)
+    else:
+        thirdThreshold = findGreaterSeqProb(secondThreshold,seqProb)
+        if thirdThreshold is not None:
+            thresholds.append(thirdThreshold)
+    #fourth threshold is when 5% FP
+    fourthThreshold = seqProb[int((len(seqProb)*2)/100)]
+    if fourthThreshold not in thresholds:
+        thresholds.append(fourthThreshold)
+    else:
+        fourthThreshold = findGreaterSeqProb(thirdThreshold,seqProb)
+        if fourthThreshold is not None:
+            thresholds.append(fourthThreshold)
+    thresholds.sort()
+    return thresholds
+
+"""
+method to find a seq prob inSeqProb from sorted seqProb list
+"""
+def findGreaterSeqProb(inSeqProb,seqProbList):
+    for seqProb in seqProbList:
+        if seqProb > inSeqProb:
+            return seqProb
+    return None
+"""
+method to test user and attacker sequences
+"""
+def testSequences(requestGraph,userSequences,attackerSequences,thresholds):
+    # intilize the progress bar
+    print "###################testSequences Started######################"
+    testSeqProgBarEndStatus = len(userSequences)+len(attackerSequences)
+    testSeqProgBarStartStatus = 0
+    testSeqProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+            maxval=testSeqProgBarEndStatus).start()
+
+    for seq in userSequences:
+        seq.testSequence(requestGraph,thresholds)
+        #update the progress bar
+        testSeqProgBarStartStatus += 1
+        testSeqProgBar.update(testSeqProgBarStartStatus)
+        
+    for seq in attackerSequences:
+        seq.testSequence(requestGraph,thresholds)   
+        #update the progress bar
+        testSeqProgBarStartStatus += 1
+        testSeqProgBar.update(testSeqProgBarStartStatus)
+    print "###################testSequences Ended######################"
+    return analyzeSequences(userSequences,attackerSequences,thresholds)
+
+"""
+method to test user and attacker sequences using combined1
+"""
+def testSequencesCombined1(dirRequestGraph,fileRequestGraph,userSequences,\
+        attackerSequences,thresholds):
+    # intilize the progress bar
+    print "#################testSequencesCombined1 Started#############"
+    testSeqProgBarEndStatus = len(userSequences)+len(attackerSequences)
+    testSeqProgBarStartStatus = 0
+    testSeqProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+            maxval=testSeqProgBarEndStatus).start()
+    for seq in userSequences:
+        seq.testSequenceCombined1(dirRequestGraph,fileRequestGraph,\
+                thresholds)
+        #update the progress bar
+        testSeqProgBarStartStatus += 1
+        testSeqProgBar.update(testSeqProgBarStartStatus)
+    for seq in attackerSequences:
+        seq.testSequenceCombined1(dirRequestGraph,fileRequestGraph,\
+                thresholds)   
+        #update the progress bar
+        testSeqProgBarStartStatus += 1
+        testSeqProgBar.update(testSeqProgBarStartStatus)
+    print "#################testSequencesCombined1 Ended#############"
+    return analyzeSequences(userSequences,attackerSequences,thresholds)
+
+"""
+method to analyze sequences and return FP,FN,MB
+"""
+def analyzeSequences(userSequences,attackerSequences,thresholds):
+    FP = {}  #false positive
+    FN = {}  #false negative
+    MB = {} #minimum botnet size
+
+    #get mis detected users
+    userMisDetected = defaultdict(int)
+    for seq in userSequences:
+        testResults = seq.getTestResults()
+        for threshold in thresholds:
+            if testResults[threshold][0]  == True:
+                userMisDetected[threshold] += 1
+    #calculate false positives
+    """
+    print "FP:"
+    print userMisDetected
+    """
+    for threshold in thresholds:
+        FP[threshold] = float(str(round((float(userMisDetected[threshold])/\
+                    len(userSequences)),6)))  
+        """
+        print "     ",threshold,FP[threshold],userMisDetected[threshold],\
+            len(userSequences)
+        """
+
+    #get mis detected attacker
+    attackerMisDetected = defaultdict(int)
+    for seq in attackerSequences:
+        testResults = seq.getTestResults()
+        for threshold in thresholds:
+            if testResults[threshold][0]  == False:
+                attackerMisDetected[threshold] += 1
+            minBotSeqLen = testResults[threshold][1]
+            minBotSize = TOTAL_10MINUTE_ATTACK_REQUEST/(\
+                    minBotSeqLen)
+            if MB.has_key(threshold):
+                if minBotSize < MB[threshold][0]: 
+                    MB[threshold] = [minBotSize,seq.getId(),minBotSeqLen]
+            else:
+                MB[threshold] = [minBotSize,seq.getId(),minBotSeqLen]
+    #calculate false negatives
+    """
+    print "FN:"
+    """
+    for threshold in thresholds:
+        FN[threshold] = float(str(round((float(attackerMisDetected[threshold])/\
+                    len(attackerSequences)),6)))  
+        """
+        print "     ",threshold,FN[threshold],attackerMisDetected[threshold],\
+            len(attackerSequences)
+        """
+    """
+    print "MB:"
+    for threshold in thresholds:
+        print "     ",threshold,MB[threshold][0],threshold,MB[threshold][1]
+    """
+
+    return [FP,FN,MB]
+
+    
 
 class Sequence:
     def __init__(self,seqId):
         self.requestSequence = []
         self.sequenceId = seqId
         self.sequenceProb = 0
+        self.thresholds = None
+        self.testResults = None
 
     """
     method to return the length of the sequences or number of request in it
@@ -162,6 +386,33 @@ class Sequence:
         requestSequence = self.getRequestSequence()
         self.setSequenceProb(fileRequestGraph.getSequenceProbCombined1(\
                     requestSequence,dirRequestGraph))
+    """
+    method to test sequence using threshold using specified method name
+    """
+    def testSequence(self,requestGraph,thresholds):
+        requestSequence = self.getRequestSequence()
+        self.setTestResults(requestGraph.testSequence(requestSequence,\
+                    thresholds))
+    """
+    method to test sequence using threshold using specified method name
+    and combined1 formula
+    """
+    def testSequenceCombined1(self,dirRequestGraph,fileRequestGraph,
+            thresholds):
+        requestSequence = self.getRequestSequence()
+        self.setTestResults(fileRequestGraph.testSequenceCombined1(\
+                    requestSequence,dirRequestGraph,thresholds))
+
+    """
+       method to set test results
+    """
+    def setTestResults(self,testResults):
+        self.testResults = testResults
+    """
+    method to get test results for specified method
+    """
+    def getTestResults(self):
+        return self.testResults
 
     """
     method to return the request sequence
@@ -278,7 +529,7 @@ class RequestGraph:
         sequenceProb = float(self.firstPageVisitedProb+sum(transitionalProbs))\
                         /(1+len(transitionalProbs))
 
-        return float(str(round(sequenceProb,2)))
+        return float(str(round(sequenceProb,6)))
     
     """
     method to get sequence probability of the inputed sequence using the 
@@ -306,7 +557,60 @@ class RequestGraph:
                 sum(transitionalProbs))/\
                 (1+len(dirEdgeTransitionalProbs))
 
-        return float(str(round(combined1SequenceProb,2)))
+        return float(str(round(combined1SequenceProb,6)))
+    
+    """
+    method to test sequence using thresholds value
+    """
+    def testSequence(self,sequence,thresholds):
+        testResults = {}
+        for threshold in thresholds:
+            testResults[threshold] = [False,len(sequence)]
+            curSeqProb = self.firstPageVisitedProb
+            curSeqLen = 1
+            for i in range(len(sequence)-1):
+                parent = sequence[i]
+                child = sequence[i+1]
+                edgeTP = None
+                try:
+                    edge = self.requestGraph[parent][child]
+                    edgeTP = edge.getEdgeTransitionalProb()
+                except KeyError:
+                    edgeTP = self.noTransitionalProb
+                curSeqLen += 1
+                curSeqProb += edgeTP
+                if (curSeqProb/float(curSeqLen)) < threshold:
+                    testResults[threshold] = [True,curSeqLen]
+                    break   
+        return testResults
+    
+    """
+    method to test the sequence using thresholds and the combined1 formula
+    """
+    def testSequenceCombined1(self,sequence,dirRequestGraph,thresholds):
+        testResults = {}
+        for threshold in thresholds:
+            testResults[threshold] = [False,len(sequence)]
+            curSeqProb = self.firstPageVisitedProb
+            curSeqLen = 1
+            for i in range(len(sequence)-1):
+                parent = sequence[i]
+                child = sequence[i+1]
+                #get parent,child for dir request graph
+                dirParent = str(str(os.path.dirname(parent)))
+                dirChild = str(str(os.path.dirname(child)))
+            
+                fileEdgeTP =self.getEdgeTransitionalProb(parent,child)  
+                dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(\
+                        dirParent,dirChild)  
+                 
+                edgeTP = fileEdgeTP*dirEdgeTP
+                curSeqProb += edgeTP
+                curSeqLen += 1
+                if (curSeqProb/float(curSeqLen)) < threshold:
+                    testResults[threshold] = [True,curSeqLen]
+                    break   
+        return testResults
 
     """
     method to show the request graph
