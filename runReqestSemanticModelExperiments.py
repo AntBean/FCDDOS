@@ -4,6 +4,14 @@ from RequestSemanticModel import *
 from operator import itemgetter
 import copy
 
+"""
+set WRITE_ATTACKER_LOGS To True if want to write attacker sequences 
+to logs
+Warning: setting it to true may results in large attacker logs files
+being written to the system
+"""
+WRITE_ATTACKER_LOGS = True
+
 
 # parse commandline arguments
 def parseCmdArgs():
@@ -70,6 +78,7 @@ wsbotcount.write(0,0,"trnSet")
 wsbotcount.write(0,1,"method")
 wsbotcount.write(0,2,"threshold")
 testResRow = 0
+mainTestResRow = 1
 wsMinMBDetRow = 0
 
 
@@ -149,11 +158,12 @@ for parsed_log_file in args.parsed_log_files:
     headerRow = 0
     headerCol = 1
     
-    testResRow += 1
+    mainTestResRow += testResRow
     testResCol = 3
     wsMinMBDetRow += 1
    
     for parsedLogFname in args.parsed_log_files:
+        testResRow = mainTestResRow
         """
         we don't test when the test data is older than train data
         """
@@ -398,12 +408,13 @@ for parsed_log_file in args.parsed_log_files:
                 print "invalid method name"
                 exit(0)
             for threshold in thresholds:
-                wsfp.write(testResRow, 1, methodName)
-                wsfp.write(testResRow, 2, str(threshold))
-                wsfn.write(testResRow, 1, methodName)
-                wsfn.write(testResRow, 2, str(threshold))
-                wsbotcount.write(testResRow, 1, methodName)
-                wsbotcount.write(testResRow, 2, str(threshold))
+                if testResCol ==3:
+                    wsfp.write(testResRow, 1, methodName)
+                    wsfp.write(testResRow, 2, str(threshold))
+                    wsfn.write(testResRow, 1, methodName)
+                    wsfn.write(testResRow, 2, str(threshold))
+                    wsbotcount.write(testResRow, 1, methodName)
+                    wsbotcount.write(testResRow, 2, str(threshold))
     
                 wsfp.write(testResRow, testResCol, str(testResults[0][threshold]))
                 wsfn.write(testResRow, testResCol, str(testResults[1][threshold]))
@@ -439,14 +450,17 @@ for parsed_log_file in args.parsed_log_files:
         
 
         writeSequencesProbToFile(dirTestSequences, dirUserSPLogFname)
-        writeSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
-        #writeAttackerSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
         writeSequencesProbToFile(fileTestSequences, fileUserSPLogFname)
-        writeSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
-        #writeAttackerSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
         writeSequencesProbToFile(combined1TestSequences, combined1UserSPLogFname)
-        writeSequencesProbToFile(combined1TestAttackerSequences,\
-                combined1AttackerSPLogFname)
+        if WRITE_ATTACKER_LOGS:
+            writeSequencesProbToFile(dirTestAttackerSequences,\
+                    dirAttackerSPLogFname)
+            #writeAttackerSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
+            writeSequencesProbToFile(fileTestAttackerSequences,\
+                    fileAttackerSPLogFname)
+            #writeAttackerSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
+            writeSequencesProbToFile(combined1TestAttackerSequences,\
+                    combined1AttackerSPLogFname)
         #writeAttackerSequencesProbToFile(combined1TestAttackerSequences,\
         #        combined1AttackerSPLogFname)
         

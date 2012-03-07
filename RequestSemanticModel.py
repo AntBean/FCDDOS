@@ -54,6 +54,7 @@ def writeSeqClassificationToFile(sequences, fileName,threshold):
 method to write sequeces probabilities to the text file
 """
 def writeSequencesProbToFile(sequences, fileName):
+    print "#################writeSeqProbTofile Started###############"
     space = " "
     colWidth = 16
     try:
@@ -66,6 +67,12 @@ def writeSequencesProbToFile(sequences, fileName):
             +colWidth*space+"SequenceLength"\
             +colWidth*space+"RequestSequence\n"
     seqProbOutStream.write(header)
+    
+    # intilize the progress bar
+    writeSeqProgBarEndStatus = len(sequences)
+    writeSeqProgBarStartStatus = 0
+    writeSeqProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+            maxval=writeSeqProgBarEndStatus).start()
 
     for sequence in sequences:
         sequenceId = str(sequence.getId())
@@ -85,6 +92,11 @@ def writeSequencesProbToFile(sequences, fileName):
         for request in sequence.getRequestSequence():
             requestOutString = startPosition+str(request)+"\n"
             seqProbOutStream.write(requestOutString)
+            
+        #update the progress bar
+        writeSeqProgBarStartStatus += 1
+        writeSeqProgBar.update(writeSeqProgBarStartStatus)
+    print "#################writeSeqProbTofile Ended###############"
 
 """
 method to write attackersequeces probabilities to the text file
