@@ -10,7 +10,7 @@ to logs
 Warning: setting it to true may results in large attacker logs files
 being written to the system
 """
-WRITE_ATTACKER_LOGS = True
+WRITE_ATTACKER_LOGS = False
 
 
 # parse commandline arguments
@@ -137,10 +137,12 @@ for parsed_log_file in args.parsed_log_files:
     #print "combined1Thresholds",combined1Thresholds
     
     #display the request graph
-    #print "##############dir Request Graph Starts#############" 
-    #fileRequestGraph.show()
-    #print "##############dir Request Graph Ends#############" 
-
+    """
+    print "##############dir Request Graph Starts#############" 
+    fileRequestGraph.show()
+    dirRequestGraph.show()
+    print "##############dir Request Graph Ends#############" 
+    """
 
     #write models to log file
     dirRequestGraphLogFname = outBaseFname+".dirmodel.log"

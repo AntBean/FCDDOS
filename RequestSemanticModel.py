@@ -461,40 +461,80 @@ class for implementing request graph
 """
 class RequestGraph:
     def __init__(self):
+        """
+            request graph is map of with key as the nodes
+            and value as the list[map,mycount]
+        """
         self.requestGraph = {}
         self.noTransitionalProb = 0;
-        self.firstPageVisitedProb = 1;
+        self.firstPageVisitedProb = 0;
+        self.totalNodesCount = 0
 
     """
     method to add an edge to the request graph    
     """
-    def append(self,parent,child):
+    def append(self,parent,child,addChildAsParent=False):
+        self.totalNodesCount += 1
         if self.requestGraph.has_key(parent) == False:
-            self.requestGraph[parent] = {}
-            self.requestGraph[parent][child] = Edge()
+            self.requestGraph[parent] = [{},1]
+            self.requestGraph[parent][0][child] = Edge()
 
         else:
-            if self.requestGraph[parent].has_key(child) == False:
-                self.requestGraph[parent][child] = Edge()
+            self.requestGraph[parent][1] += 1
+            if self.requestGraph[parent][0].has_key(child) == False:
+                self.requestGraph[parent][0][child] = Edge()
             else:
-                self.requestGraph[parent][child].incrementEdgeCount()
+                self.requestGraph[parent][0][child].incrementEdgeCount()
+
+        #to maintain the count of all nodes, this will be called
+        #only when last request in the sequences is added
+        if addChildAsParent ==True:
+            self.totalNodesCount += 1
+            if self.requestGraph.has_key(child) == False:
+                self.requestGraph[child] = [{},1]
+            else:
+                self.requestGraph[child][1] += 1
+                
     """
         method to get the edge the transition prob
     """
     def getEdgeTransitionalProb(self,parent,child):
         try:
-            return self.requestGraph[parent][child].getEdgeTransitionalProb()
+            return self.requestGraph[parent][0][child].getEdgeTransitionalProb()
         except KeyError:
             return self.noTransitionalProb
 
+    """
+    method to return the probabity of node out of all the nodes visited
+    """
+    def getNodeVisitedProb(self,node):
+        if self.requestGraph.has_key(node) == True:
+            return float(self.requestGraph[node][1])/self.totalNodesCount
+        else:
+            return float(self.firstPageVisitedProb)
+        """
+        print "###################getNodeVisitedProb Start###################"
+        try:
+            print node,":",float(self.requestGraph[node][1])/self.totalNodesCount,\
+                self.requestGraph[node][1],self.totalNodesCount
+            exit(0)
+            return float(self.requestGraph[node][1])/self.totalNodesCount
+        except KeyError:
+            print self.requestGraph.keys()
+            raise            
+        print "###################getNodeVisitedProb End###################"
+        """
 
     """
     method to return the sum of edges count  from inputted parent node
     """
     def getSumOfEdgeCount(self,parent):
         sumOfEdgeCount = 0
-        for child in self.requestGraph[parent].keys():
-            sumOfEdgeCount += self.requestGraph[parent][child].getEdgeCount()
+        """
+        for child in self.requestGraph[parent][0].keys():
+            sumOfEdgeCount += self.requestGraph[parent][0][child].getEdgeCount()
+        """
+        sumOfEdgeCount += self.requestGraph[parent][1]
         return sumOfEdgeCount
 
     """
@@ -509,13 +549,13 @@ class RequestGraph:
             maxval=len(self.requestGraph)).start()
         status = 0
         for parent in self.requestGraph.keys():
-            for child in self.requestGraph[parent].keys():
+            for child in self.requestGraph[parent][0].keys():
                 parentNode = self.requestGraph[parent]
-                edge = parentNode[child]
+                edge = parentNode[0][child]
                 edgeCount = edge.getEdgeCount()
                 sumOfEdgeCount = self.getSumOfEdgeCount(parent)
                 transitionalProb = float(edgeCount)/sumOfEdgeCount
-                transitionalProb = float(str(round(transitionalProb,2)))
+                transitionalProb = float(str(round(transitionalProb,6)))
                 edge.setEdgeTransitionalProb(transitionalProb)
             #update the progress bar
             status +=1
@@ -523,6 +563,7 @@ class RequestGraph:
 
         print "#############calculateEdgeTransitionalProb Endeedd#############"
         print "\n"
+
 
     """
     method to get sequence probability of the inputed sequence using the 
@@ -534,12 +575,16 @@ class RequestGraph:
             parent = sequence[i]
             child = sequence[i+1]
             try:
-                edge = self.requestGraph[parent][child]
+                edge = self.requestGraph[parent][0][child]
                 transitionalProbs.append(edge.getEdgeTransitionalProb())
             except KeyError:
                 transitionalProbs.append(self.noTransitionalProb)
+        """
         sequenceProb = float(self.firstPageVisitedProb+sum(transitionalProbs))\
                         /(1+len(transitionalProbs))
+        """
+        sequenceProb = float(self.getNodeVisitedProb(sequence[0])+\
+                sum(transitionalProbs))/(1+len(transitionalProbs))
 
         return float(str(round(sequenceProb,6)))
     
@@ -564,10 +609,15 @@ class RequestGraph:
 
             transitionalProbs.append(edgeTP*dirEdgeTP)
             dirEdgeTransitionalProbs.append(dirEdgeTP)
-                
+        """        
         combined1SequenceProb = float(self.firstPageVisitedProb+\
                 sum(transitionalProbs))/\
                 (1+len(dirEdgeTransitionalProbs))
+        """
+        dirFirstNode = str(str(os.path.dirname(sequence[0]))) 
+        combined1SequenceProb = float(dirRequestGraph.getNodeVisitedProb(\
+                    dirFirstNode)+sum(transitionalProbs))/\
+            (1+len(dirEdgeTransitionalProbs))
 
         return float(str(round(combined1SequenceProb,6)))
     
@@ -578,14 +628,17 @@ class RequestGraph:
         testResults = {}
         for threshold in thresholds:
             testResults[threshold] = [False,len(sequence)]
+            """
             curSeqProb = self.firstPageVisitedProb
+            """
+            curSeqProb = self.getNodeVisitedProb(sequence[0])
             curSeqLen = 1
             for i in range(len(sequence)-1):
                 parent = sequence[i]
                 child = sequence[i+1]
                 edgeTP = None
                 try:
-                    edge = self.requestGraph[parent][child]
+                    edge = self.requestGraph[parent][0][child]
                     edgeTP = edge.getEdgeTransitionalProb()
                 except KeyError:
                     edgeTP = self.noTransitionalProb
@@ -603,7 +656,11 @@ class RequestGraph:
         testResults = {}
         for threshold in thresholds:
             testResults[threshold] = [False,len(sequence)]
+            """
             curSeqProb = self.firstPageVisitedProb
+            """
+            dirFirstNode = str(str(os.path.dirname(sequence[0]))) 
+            curSeqProb = dirRequestGraph.getNodeVisitedProb(dirFirstNode)
             curSeqLen = 1
             for i in range(len(sequence)-1):
                 parent = sequence[i]
@@ -629,9 +686,11 @@ class RequestGraph:
     """
     def show(self):
         for parent in self.requestGraph.keys():
-            for child in self.requestGraph[parent].keys():
+            print "ParentFreq",self.getNodeVisitedProb(parent),\
+                self.totalNodesCount,self.requestGraph[parent][1]
+            for child in self.requestGraph[parent][0].keys():
                 parentNode = self.requestGraph[parent]
-                edge = parentNode[child]
+                edge = parentNode[0][child]
                 edgeCount = edge.getEdgeCount()
                 tProb = edge.getEdgeTransitionalProb()
                 print "['"+str(parent)+"'->'"+str(child)+\
@@ -703,7 +762,7 @@ class RequestGraph:
     """
     def writeToFile(self,fileName):
         space = " "
-        colWidth = 64
+        colWidth = 48
         colWidth2 = 16
         try:
             requestGraphOutStream = open(fileName,"w")
@@ -711,21 +770,26 @@ class RequestGraph:
             print "Error Opening request graph output file: ",fileName
 
         #first write header    
-        header = "ParentNode"+colWidth*space+"ChildNode"+\
-                +colWidth*space+"EdgeCount"\
-                +colWidth2*space+"EdgeTransitionalProb\n"
+        header = "ParentNode"+colWidth*space+\
+                    "ParentFreq"+colWidth2*space+\
+                    "ChildNode"+colWidth*space+\
+                    "EdgeCount"+colWidth2*space+\
+                    "EdgeTransitionalProb\n"
         requestGraphOutStream.write(header)
-
         for parent in self.requestGraph.keys():
             parentOutString = str(parent)+"\n"
             requestGraphOutStream.write(parentOutString)
             startPosition = ((len("ParentNode")+colWidth)*space)
-            for child in self.requestGraph[parent].keys():
-                edge = self.requestGraph[parent][child]
+            parentFreq = str(self.getNodeVisitedProb(parent))
+            for child in self.requestGraph[parent][0].keys():
+                edge = self.requestGraph[parent][0][child]
                 edgeCount = str(edge.getEdgeCount())
                 edgeTransitionalProb = str(edge.getEdgeTransitionalProb())
 
-                edgeOutString = startPosition+str(child)+\
+                edgeOutString = startPosition+\
+                        parentFreq+\
+                        ((len("ParentFreq")-len(parentFreq))+colWidth2)*space+\
+                        str(child)+\
                         ((len("ChildNode")-len(str(child)))+colWidth)*space+\
                         edgeCount+\
                         ((len("EdgeCount")-len(edgeCount))+colWidth2)*space+\
