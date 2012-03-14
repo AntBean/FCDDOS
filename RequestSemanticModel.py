@@ -495,6 +495,16 @@ class RequestGraph:
                 self.requestGraph[child] = [{},1]
             else:
                 self.requestGraph[child][1] += 1
+    
+    """
+    method to add a parent node to the request graph    
+    """
+    def appendNode(self,parent):
+        self.totalNodesCount += 1
+        if self.requestGraph.has_key(parent) == False:
+            self.requestGraph[parent] = [{},1]
+        else:
+            self.requestGraph[parent][1] += 1
                 
     """
         method to get the edge the transition prob
@@ -681,6 +691,15 @@ class RequestGraph:
                     testResults[threshold] = [True,curSeqLen]
                     break   
         return testResults
+    """
+    method to custom show the request graph
+    """
+    def cshow(self):
+        print "##################cshow starts###################"
+        for parent in self.requestGraph.keys():
+            print parent
+        print "\n"
+        print "##################cshow Ends###################"
 
     """
     method to show the request graph
@@ -778,18 +797,24 @@ class RequestGraph:
                     "EdgeTransitionalProb\n"
         requestGraphOutStream.write(header)
         for parent in self.requestGraph.keys():
-            parentOutString = str(parent)+"\n"
-            requestGraphOutStream.write(parentOutString)
-            startPosition = ((len("ParentNode")+colWidth)*space)
             parentFreq = str(self.getNodeVisitedProb(parent))
+            parentOutString = str(parent)+\
+                              ((len("ParentNode")-len(parent)+colWidth)*space)+\
+                                str(parentFreq)+"\n"
+            requestGraphOutStream.write(parentOutString)
+            startPosition =(
+                    (len(parent))*space+\
+                    (len("ParentNode")-len(parent)+colWidth)*space+\
+                    (len(parentFreq))*space+\
+                    (len("ParentFreq")-len(parentFreq)+colWidth2)*space
+                    )
+#                    (len("ParentFreq")-len(parentFreq)+colWidth2))*space)
             for child in self.requestGraph[parent][0].keys():
                 edge = self.requestGraph[parent][0][child]
                 edgeCount = str(edge.getEdgeCount())
                 edgeTransitionalProb = str(edge.getEdgeTransitionalProb())
 
                 edgeOutString = startPosition+\
-                        parentFreq+\
-                        ((len("ParentFreq")-len(parentFreq))+colWidth2)*space+\
                         str(child)+\
                         ((len("ChildNode")-len(str(child)))+colWidth)*space+\
                         edgeCount+\

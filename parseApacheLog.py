@@ -477,28 +477,6 @@ def processEntryLogHashTable(logHashTable,key,\
         # get file type
         fileType = getFileType(requestURI)
         
-        ORG.append(fileType,fileName)
-    
-        if parent is None:
-            parent = subDir
-        else:
-            child = subDir
-            requestGraph.append(parent,child)
-            parent = child
-        
-        if fileParent is None:
-            fileParent = fileName
-        else:
-            fileChild = fileName
-            fileRequestGraph.append(fileParent,fileChild)
-            fileParent = fileChild
-        
-        if stateParent is None:
-            stateParent = fileType
-        else:
-            stateChild = fileType
-            SRG.append(stateParent,stateChild)
-            stateParent = stateChild
         
 
         #if outputStatus is 1:
@@ -545,6 +523,14 @@ def processEntryLogHashTable(logHashTable,key,\
             startTs = request[0]
             R = 0
 
+            """
+            check if there is only one request in the sequence
+            if yes then add the request to the graphs
+            """
+            if sequence.getSequenceLength() ==1:
+                requestGraph.appendNode(sequence.getRequestSequence()[0])
+            if fileSequence.getSequenceLength() ==1:
+                fileRequestGraph.appendNode(fileSequence.getRequestSequence()[0])
             #append the sequences
             sequences.append(sequence)
             fileSequences.append(fileSequence)
@@ -553,9 +539,33 @@ def processEntryLogHashTable(logHashTable,key,\
             child = None
             fileParent = None
             fileChild = None
+            stateParent = None
+            stateChild = None
             sequence = Sequence(sequenceId)
             fileSequence = Sequence(fileSequenceId)
 
+        ORG.append(fileType,fileName)
+    
+        if parent is None:
+            parent = subDir
+        else:
+            child = subDir
+            requestGraph.append(parent,child)
+            parent = child
+        
+        if fileParent is None:
+            fileParent = fileName
+        else:
+            fileChild = fileName
+            fileRequestGraph.append(fileParent,fileChild)
+            fileParent = fileChild
+        
+        if stateParent is None:
+            stateParent = fileType
+        else:
+            stateChild = fileType
+            SRG.append(stateParent,stateChild)
+            stateParent = stateChild
     
         diff = request[0] - prevReqTs
         #if diff.total_seconds() > 600:
@@ -612,6 +622,14 @@ def processEntryLogHashTable(logHashTable,key,\
     if resultEvaluate ==0:
         return 0
     else:
+        """
+        check if there is only one request in the sequence
+        if yes then add the request to the graphs
+        """
+        if sequence.getSequenceLength() ==1:
+            requestGraph.appendNode(sequence.getRequestSequence()[0])
+        if fileSequence.getSequenceLength() ==1:
+            fileRequestGraph.appendNode(fileSequence.getRequestSequence()[0])
         #add the sequence to the sequences
         sequences.append(sequence)
         fileSequences.append(fileSequence)
@@ -970,6 +988,7 @@ outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
          totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph,\
          fileSequences,fileRequestGraph,SRG,ORG]
 pickle.dump(outStats, open(outStatsFname,"wb"))
+fileRequestGraph.cshow()
 """
 print "################show SRG starts################"
 SRG.show()
