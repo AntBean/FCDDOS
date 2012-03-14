@@ -9,6 +9,7 @@ MIN_ATTACKER_SEQUENCE_LENGTH = 2
 FIRST_ATTACKER_IP = "194.0.0.1"
 VALID_METHOD_NAMES = ["dir","file","combined1"]
 TOTAL_10MINUTE_ATTACK_REQUEST = 600000
+
 """
 method to write sequeces classification to the text file for the threshold value
 """
@@ -462,7 +463,7 @@ class for implementing request graph
 class RequestGraph:
     def __init__(self):
         """
-            request graph is map of with key as the nodes
+            request graph is map with key as the nodes
             and value as the list[map,mycount]
         """
         self.requestGraph = {}

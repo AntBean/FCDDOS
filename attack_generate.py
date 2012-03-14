@@ -147,8 +147,15 @@ while i < args.num_attacker:
     # get NPra for other sesssions types
     NPra_Others = getNPraForOthers(N,P,r,a)
     #get the N,P,r,a for browsing, relaxed, long session
+    """
+    for all 16 parameters
+    """
     parameters = searchingSession
     parameters.extend(NPra_Others)
+    """
+    for only searching session parameters
+    """
+    #parameters = searchingSession
     #write the parameters
     # convert list to comma seperated string
     outputString = ",".join([str(round(x,2)) for x in parameters])

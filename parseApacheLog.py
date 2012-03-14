@@ -24,6 +24,7 @@ import argparse
 import os, sys
 import re
 import pickle
+from FileCategory import fileCategoryNames,fileCategories
 
 indnt = "  "
 indntlevel = 0
@@ -361,7 +362,15 @@ def evaluate(sessionTypes,R,outputStream,key):
     setAttackerParameters(NPraList,R)
     # output data
     #print "Final R", R
+    """
+    16 parameters
+    """
     outputData = NPraList
+    """
+    4 searching session parameters
+    outputData = NPraList[:4]
+    """
+
     """
     Don't append the number of request field as this may be used
     J4.8 for learning which we do not want
@@ -399,7 +408,8 @@ def evaluate(sessionTypes,R,outputStream,key):
 #NPra for it
 def processEntryLogHashTable(logHashTable,key,\
                                 requestGraph,sequences,\
-                                fileRequestGraph,fileSequences
+                                fileRequestGraph,fileSequences,\
+                                SRG,ORG
                                 ):
     global invalidNPraCount
     numValidUsers = 0
@@ -410,6 +420,9 @@ def processEntryLogHashTable(logHashTable,key,\
     
     fileParent = None
     fileChild = None
+    
+    stateParent = None
+    stateChild = None
 
 
     #create sequence objets
@@ -461,7 +474,11 @@ def processEntryLogHashTable(logHashTable,key,\
         subDir = getSubDir(requestURI)
         #getFileName
         fileName = getFileName(requestURI)
-
+        # get file type
+        fileType = getFileType(requestURI)
+        
+        ORG.append(fileType,fileName)
+    
         if parent is None:
             parent = subDir
         else:
@@ -475,7 +492,14 @@ def processEntryLogHashTable(logHashTable,key,\
             fileChild = fileName
             fileRequestGraph.append(fileParent,fileChild)
             fileParent = fileChild
-
+        
+        if stateParent is None:
+            stateParent = fileType
+        else:
+            stateChild = fileType
+            SRG.append(stateParent,stateChild)
+            stateParent = stateChild
+        
 
         #if outputStatus is 1:
         #   print "request size =" , sys.getsizeof(request)
@@ -611,6 +635,18 @@ def getSubDir(requestURI):
         return '/'
     else:
         return subDir
+
+"""
+ method to get filetype from the request uri
+"""
+def getFileType(requestURI):
+    fileEXTN = getFileEXTN(requestURI)
+    for fileCategory in fileCategories:
+        if fileEXTN in fileCategory:
+            index = fileCategories.index(fileCategory)
+            return fileCategoryNames[index]
+ 
+    return "misc"
 
 """
  method to get filename from the request uri
@@ -750,6 +786,11 @@ fileRequestGraph = RequestGraph()
 #sequences to hold the request sequences    
 fileSequences = []
 
+#state request graph and observation request graph for hmm
+SRG = RequestGraph()
+ORG = RequestGraph()
+
+
 
 alp = ApacheLogParser()
 
@@ -865,7 +906,8 @@ for key in logHashTable.keys():
     #process the reqeust for ip address = key
     resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key,\
                                 requestGraph,sequences,\
-                                fileRequestGraph,fileSequences\
+                                fileRequestGraph,fileSequences,\
+                                SRG,ORG\
                                 )
 
     if resultProcessEntryFunc == 0:
@@ -875,7 +917,8 @@ for key in logHashTable.keys():
         # if still there is a error upate the invalidNPra value
         resultProcessEntryFunc = processEntryLogHashTable(logHashTable,key,\
                                 requestGraph,sequences,\
-                                fileRequestGraph,fileSequences\
+                                fileRequestGraph,fileSequences,\
+                                SRG,ORG\
                                 )
         if resultProcessEntryFunc == 0:
             notInvalidNPra = False
@@ -925,12 +968,19 @@ TotalNumberAttacker =TotalNumberUser
 outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
          totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph,\
-         fileSequences,fileRequestGraph]
+         fileSequences,fileRequestGraph,SRG,ORG]
 pickle.dump(outStats, open(outStatsFname,"wb"))
+"""
+print "################show SRG starts################"
+SRG.show()
+print "################show SRG Ends################"
+print "################show ORG starts################"
+ORG.show()
+print "################show ORG Ends################"
+SRG.writeToFile("SRG.txt")
+ORG.writeToFile("ORG.txt")
+"""
 
-statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
-                                        "_stats"
-                            )
 
 
 """
@@ -938,7 +988,9 @@ This Code is not needed anymore as we are writing
 data set stats into pickle file, which is getting written 
 int xls sheet, so commenting out this piece of code
 
-
+statsFname = os.path.join(args.outdir,os.path.basename(args.apache_log_file)+
+                                        "_stats"
+                            )
 statsOutStream = None
 try:
     statsOutStream = open(statsFname,"w")

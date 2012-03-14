@@ -52,8 +52,19 @@ if args.unparsed_log_files:
         parsed_log_file = os.path.join(args.outdir,os.path.basename(unparsed_log_file)+
                                         "_u")
         args.parsed_log_files.append(parsed_log_file)
+        """
+        default duaration for sesion types
         parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
                             " -o "+args.outdir
+        """
+        """
+        """
+        parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
+                                " -s "+"20"+\
+                                " -b "+"120"+\
+                                " -r "+"600"+\
+                                " -l "+"1200"+\
+                                " -o "+args.outdir
         print "parsed out file: ",parsed_log_file
         print "Parse apache command: ", parseApacheCommand
         os.system(parseApacheCommand)
@@ -248,6 +259,7 @@ for parsed_log_file in args.parsed_log_files:
     """
     print "#######################file access frequecy########################"
 
+    """
     #write dir sequence probability data to the report file
     wsSequencesProbRow = 1
     for sequence in sequences:
@@ -272,7 +284,7 @@ for parsed_log_file in args.parsed_log_files:
     #write fileSequence probability data to the text Log file
     fileSequenceProbOutFname = str(outBaseFname.partition("_u")[0])+".FileSequenceProb"
     writeSequencesProbToFile(fileSequences,fileSequenceProbOutFname)
-
+    """
         
 
     #attackerOutFname = str(parsed_log_file.partition("_u")[0])+"_a"
