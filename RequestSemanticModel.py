@@ -66,6 +66,8 @@ def writeSequencesProbToFile(sequences, fileName):
     #first write header    
     header = "SequenceId"+colWidth*space+"SequenceProb"+\
             +colWidth*space+"SequenceLength"\
+            +colWidth*space+"EdgeCumProb"\
+            +colWidth*space+"EdgeProb"\
             +colWidth*space+"RequestSequence\n"
     seqProbOutStream.write(header)
     
@@ -80,18 +82,25 @@ def writeSequencesProbToFile(sequences, fileName):
         sequenceProb = str(sequence.getSequenceProb())
         sequenceLength = str(sequence.getSequenceLength())
         outString = sequenceId+\
-                ((len("sequenceId")-len(sequenceId))+colWidth)*space+\
+                ((len("SequenceId")-len(sequenceId))+colWidth)*space+\
                 sequenceProb+\
-                ((len("sequenceProb")-len(sequenceProb))+colWidth)*space+\
+                ((len("SequenceProb")-len(sequenceProb))+colWidth)*space+\
                 sequenceLength+\
-                ((len("sequenceLength")-len(sequenceLength))+colWidth)*space+\
+                ((len("SequenceLength")-len(sequenceLength))+colWidth)*space+\
                 "\n"
 
         seqProbOutStream.write(outString)
         #now write request for this sequence
-        startPosition = (len(outString)+4)*space
+        startPosition = (len(outString))*space
         for request in sequence.getRequestSequence():
-            requestOutString = startPosition+str(request)+"\n"
+            edgeProb = str(sequence.getEdgeProb(request))
+            edgeCumProb = str(sequence.getEdgeCumProb(request))
+            requestOutString = startPosition+\
+                    edgeCumProb+\
+                    ((len("EdgeCumProb")-len(edgeCumProb))+colWidth)*space+\
+                    edgeProb+\
+                    ((len("EdgeProb")-len(edgeProb))+colWidth)*space+\
+                    str(request)+"\n"
             seqProbOutStream.write(requestOutString)
             
         #update the progress bar
@@ -365,10 +374,25 @@ def analyzeSequences(userSequences,attackerSequences,thresholds):
 class Sequence:
     def __init__(self,seqId):
         self.requestSequence = []
+        self.edgeProbs = []
+        self.edgeCumProbs = []
         self.sequenceId = seqId
         self.sequenceProb = 0
         self.thresholds = None
         self.testResults = None
+
+    """
+    method to return the edge probability 
+    """
+    def getEdgeProb(self,request):
+        index = self.requestSequence.index(request)
+        return str(round(self.edgeProbs[index],6))
+    """
+    method to return the edge cum probability 
+    """
+    def getEdgeCumProb(self,request):
+        index = self.requestSequence.index(request)
+        return str(round(self.edgeCumProbs[index],6))
 
     """
     method to return the length of the sequences or number of request in it
@@ -388,17 +412,64 @@ class Sequence:
     """
     def calculateSequenceProb(self,requestGraph):
         requestSequence = self.getRequestSequence()
-        self.setSequenceProb(requestGraph.getSequenceProb(\
-                                                          requestSequence))
+        self.setSequenceProb(requestGraph.getSequenceProb(
+                    requestSequence))
+        """
+        find the probabilities for first request and each edge in 
+        in request sequences
+        """
+        sequence = requestSequence
+        firstNodeVisitedProb = float(requestGraph.getNodeVisitedProb(
+                    sequence[0])) 
+        self.edgeProbs.append(firstNodeVisitedProb)
+        tmpEdgeProbs = []
+        edgeTP = float(firstNodeVisitedProb)
+        tmpEdgeProbs.append(edgeTP)
+        edgeCumProb = float(sum(tmpEdgeProbs))/len(tmpEdgeProbs)
+        self.edgeCumProbs.append(edgeCumProb)
+        for i in range(len(sequence)-1):
+            parent = sequence[i]
+            child = sequence[i+1]
+            edgeTP = requestGraph.getEdgeTransitionalProb(
+                    parent,child)
+            self.edgeProbs.append(float(edgeTP))
+            edgeCumProb *= (float(edgeTP))
+            edgeCumProb/(len(self.edgeCumProbs)+1)
+            self.edgeCumProbs.append(edgeCumProb)
+
     """
     method to calculate combined1 sequences probability using file level as 
-        well as directory level information
-        sequences must contain file level information
+    well as directory level information
+    sequences must contain file level information
     """
     def calculateSequenceProbCombined1(self,dirRequestGraph,fileRequestGraph):
         requestSequence = self.getRequestSequence()
         self.setSequenceProb(fileRequestGraph.getSequenceProbCombined1(\
                     requestSequence,dirRequestGraph))
+        """
+        find the probabilities for first request and each edge in 
+        in request sequences
+        """
+        sequence = requestSequence
+        firstNodeVisitedProb = float(dirRequestGraph.getNodeVisitedProb(
+                    sequence[0])) 
+        self.edgeProbs.append(firstNodeVisitedProb)
+        edgeCumProb = float(firstNodeVisitedProb)
+        self.edgeCumProbs.append(edgeCumProb)
+        for i in range(len(sequence)-1):
+            parent = sequence[i]
+            child = sequence[i+1]
+            #get parent,child for dir request graph
+            dirParent = str(str(os.path.dirname(parent)))
+            dirChild = str(str(os.path.dirname(child)))
+            
+            edgeTP =fileRequestGraph.getEdgeTransitionalProb(parent,child)  
+            dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(
+                    dirParent,dirChild)
+            self.edgeProbs.append(edgeTP*dirEdgeTP)
+            edgeCumProb *= (float(edgeTP))/(len(self.edgeCumProbs)+1)
+            self.edgeCumProbs.append(edgeCumProb)
+
     """
     method to test sequence using threshold using specified method name
     """
