@@ -111,22 +111,7 @@ statsRowIndx = 1
 
 #most aggressive attacker parameter
 aggAttParam = None
-"""
-minN1Agg = None
-maxN1Agg = None
-minP1Agg = None
-maxP1Agg = None
-minr1Agg = None
-maxr1Agg = None
-mina1Agg = None
-maxa1Agg = None
-minN2Agg = None
-maxP2Agg = None
-minN2Agg = None
-maxP2Agg = None
-minN2Agg = None
-maxP2Agg = None
-"""
+
 #first set the parameter for the most aggressive attacker
 for parsed_log_file in args.parsed_log_files:
     statsFname = parsed_log_file+"_pickle"
@@ -154,63 +139,6 @@ for parsed_log_file in args.parsed_log_files:
                 aggAttParam[attParamIndex][1] = attParam[attParamIndex][1]
                 
                 
-    """
-    if minN1Agg is None:
-        minN1Agg = outStats[0]
-    elif minN1Agg > outStats[0]:
-        minN1Agg = outStats[0]
-    else:
-        None
-
-    if maxN1Agg is None:
-        maxN1Agg = outStats[1]
-    elif maxN1Agg < outStats[1]:
-        maxN1Agg = outStats[1]
-    else:
-        None
-    
-    if minP1Agg is None:
-        minP1Agg = outStats[2]
-    elif minP1Agg > outStats[2]:
-        minP1Agg = outStats[2]
-    else:
-        None
-
-    if maxP1Agg is None:
-        maxP1Agg = outStats[3]
-    elif maxP1Agg < outStats[3]:
-        maxP1Agg = outStats[3]
-    else:
-        None
-    
-    if minr1Agg is None:
-        minr1Agg = outStats[4]
-    elif minr1Agg > outStats[4]:
-        minr1Agg = outStats[4]
-    else:
-        None
-
-    if maxr1Agg is None:
-        maxr1Agg = outStats[5]
-    elif maxr1Agg < outStats[5]:
-        maxr1Agg = outStats[5]
-    else:
-        None
-    
-    if mina1Agg is None:
-        mina1Agg = outStats[6]
-    elif mina1Agg > outStats[6]:
-        mina1Agg = outStats[6]
-    else:
-        None
-
-    if maxa1Agg is None:
-        maxa1Agg = outStats[7]
-    elif maxa1Agg < outStats[7]:
-        maxa1Agg = outStats[7]
-    else:
-        None
-    """
 #convert parameter to str format
 for paramIndex in range(len(aggAttParam)):
     #number of sessions is in interger, so just convert it str
@@ -236,26 +164,6 @@ for parsed_log_file in args.parsed_log_files:
     outStats = pickle.load(pickleStream)
     #print "outStats: ", outStats
     #attacker parameters
-    """
-    minN1 = outStats[0]
-    maxN1 = outStats[1]
-    minP1 = str(round(outStats[2],2))
-    maxP1 = str(round(outStats[3],2))
-    minr1 = str(round(outStats[4],2))
-    maxr1 = str(round(outStats[5],2))
-    mina1 = str(round(outStats[6],2))
-    maxa1 = str(round(outStats[7],2))
-    """
-    """
-    minN1 = minN1Agg
-    maxN1 = maxN1Agg
-    minP1 = str(round(minP1Agg,2))
-    maxP1 = str(round(maxP1Agg,2))
-    minr1 = str(round(minr1Agg,2))
-    maxr1 = str(round(maxr1Agg,2))
-    mina1 = str(round(mina1Agg,2))
-    maxa1 = str(round(maxa1Agg,2))
-    """
     TotalNumberUser = outStats[1]
     TotalNumberAttacker = outStats[2]
     TotalNumberReq = outStats[3]
