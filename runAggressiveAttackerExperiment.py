@@ -1,4 +1,4 @@
-import os,sys,argparse,pickle
+import os,sys,argparse,pickle,copy
 import math, xlwt
 from RequestSemanticModel import writeSequencesProbToFile
 # parse commandline arguments
@@ -54,10 +54,9 @@ if args.unparsed_log_files:
         args.parsed_log_files.append(parsed_log_file)
         """
         default duaration for sesion types
+        """
         parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
                             " -o "+args.outdir
-        """
-        """
         """
         parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
                                 " -s "+"20"+\
@@ -65,6 +64,7 @@ if args.unparsed_log_files:
                                 " -r "+"600"+\
                                 " -l "+"1200"+\
                                 " -o "+args.outdir
+        """
         print "parsed out file: ",parsed_log_file
         print "Parse apache command: ", parseApacheCommand
         os.system(parseApacheCommand)
@@ -101,9 +101,17 @@ wsstats.write(0, 8, "[N1Min-N1Max]")
 wsstats.write(0, 9, "[P1Min-P1Max]")
 wsstats.write(0, 10, "[r1Min-r1Max]")
 wsstats.write(0, 11, "[a1Min-a1Max]")
+wsstats.write(0, 12, "[N2Min-N2Max]")
+wsstats.write(0, 13, "[P2Min-P2Max]")
+wsstats.write(0, 14, "[N3Min-N3Max]")
+wsstats.write(0, 15, "[P3Min-P3Max]")
+wsstats.write(0, 16, "[N4Min-N4Max]")
+wsstats.write(0, 17, "[P4Min-P4Max]")
 statsRowIndx = 1
 
 #most aggressive attacker parameter
+aggAttParam = None
+"""
 minN1Agg = None
 maxN1Agg = None
 minP1Agg = None
@@ -112,7 +120,13 @@ minr1Agg = None
 maxr1Agg = None
 mina1Agg = None
 maxa1Agg = None
-
+minN2Agg = None
+maxP2Agg = None
+minN2Agg = None
+maxP2Agg = None
+minN2Agg = None
+maxP2Agg = None
+"""
 #first set the parameter for the most aggressive attacker
 for parsed_log_file in args.parsed_log_files:
     statsFname = parsed_log_file+"_pickle"
@@ -125,7 +139,22 @@ for parsed_log_file in args.parsed_log_files:
         print "Error Opening pickle file: ",statsFname
         exit(0)
     outStats = pickle.load(pickleStream)
+    #get attacker param for this data set
+    attParam = outStats[0]
     #set most aggressive attacker parameters
+    if aggAttParam is None:
+        aggAttParam = copy.deepcopy(attParam)
+    else:
+        for attParamIndex in range(len(attParam)):
+            #set minimum value
+            if aggAttParam[attParamIndex][0] > attParam[attParamIndex][0]:
+                aggAttParam[attParamIndex][0] = attParam[attParamIndex][0]
+            #set maximum value
+            if aggAttParam[attParamIndex][1] < attParam[attParamIndex][1]:
+                aggAttParam[attParamIndex][1] = attParam[attParamIndex][1]
+                
+                
+    """
     if minN1Agg is None:
         minN1Agg = outStats[0]
     elif minN1Agg > outStats[0]:
@@ -181,6 +210,17 @@ for parsed_log_file in args.parsed_log_files:
         maxa1Agg = outStats[7]
     else:
         None
+    """
+#convert parameter to str format
+for paramIndex in range(len(aggAttParam)):
+    #number of sessions is in interger, so just convert it str
+    if paramIndex in [0,4,8,12]:
+        aggAttParam[paramIndex][0] = str(aggAttParam[paramIndex][0])
+        aggAttParam[paramIndex][1] = str(aggAttParam[paramIndex][1])
+    else:
+        aggAttParam[paramIndex][0] = str(round(aggAttParam[paramIndex][0],2))
+        aggAttParam[paramIndex][1] = str(round(aggAttParam[paramIndex][1],2))
+    
 
 for parsed_log_file in args.parsed_log_files:
     outBaseFname = os.path.join(args.outdir,os.path.basename(parsed_log_file))
@@ -206,6 +246,7 @@ for parsed_log_file in args.parsed_log_files:
     mina1 = str(round(outStats[6],2))
     maxa1 = str(round(outStats[7],2))
     """
+    """
     minN1 = minN1Agg
     maxN1 = maxN1Agg
     minP1 = str(round(minP1Agg,2))
@@ -214,18 +255,18 @@ for parsed_log_file in args.parsed_log_files:
     maxr1 = str(round(maxr1Agg,2))
     mina1 = str(round(mina1Agg,2))
     maxa1 = str(round(maxa1Agg,2))
-    
-    TotalNumberUser = outStats[8]
-    TotalNumberAttacker = outStats[9]
-    TotalNumberReq = outStats[10]
-    invalidFormatCount = outStats[11]
-    invalidNPraCount = outStats[12]
-    totalLogCount = outStats[13]
-    fileExtnAccessFrequencyTable = outStats[14]
-    sequences = outStats[15]
-    requestGraph = outStats[16]
-    fileSequences = outStats[17]
-    fileRequestGraph = outStats[18]
+    """
+    TotalNumberUser = outStats[1]
+    TotalNumberAttacker = outStats[2]
+    TotalNumberReq = outStats[3]
+    invalidFormatCount = outStats[4]
+    invalidNPraCount = outStats[5]
+    totalLogCount = outStats[6]
+    fileExtnAccessFrequencyTable = outStats[7]
+    sequences = outStats[8]
+    requestGraph = outStats[9]
+    fileSequences = outStats[10]
+    fileRequestGraph = outStats[11]
 
     #update TotalNumberOfAttacker
     TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
@@ -239,10 +280,18 @@ for parsed_log_file in args.parsed_log_files:
     wsstats.write(statsRowIndx, 4, invalidFormatCount)
     wsstats.write(statsRowIndx, 5, invalidNPraCount)
     wsstats.write(statsRowIndx, 6, totalLogCount)
+    """
     wsstats.write(statsRowIndx, 8, "["+str(minN1)+"-"+str(maxN1)+"]")
     wsstats.write(statsRowIndx, 9, "["+str(minP1)+"-"+str(maxP1)+"]")
     wsstats.write(statsRowIndx, 10, "["+str(minr1)+"-"+str(maxr1)+"]")
     wsstats.write(statsRowIndx, 11, "["+str(mina1)+"-"+str(maxa1)+"]")
+    """
+    for paramIndex in range(len(aggAttParam)):
+        curParam = aggAttParam[paramIndex]
+        wsstats.write(statsRowIndx, 8+paramIndex,
+                "["+str(curParam[0])+"-"+str(curParam[1])+"]")
+        
+
     statsRowIndx+=1
    
     #write file access frequency table data to report file
@@ -259,43 +308,31 @@ for parsed_log_file in args.parsed_log_files:
     """
     print "#######################file access frequecy########################"
 
-    """
-    #write dir sequence probability data to the report file
-    wsSequencesProbRow = 1
-    for sequence in sequences:
-        wsSequencesProb.write(wsSequencesProbRow,0,sequence.getId())
-        wsSequencesProb.write(wsSequencesProbRow,1,sequence.getSequenceProb())
-        wsSequencesProb.write(wsSequencesProbRow,2,sequence.getSequenceLength())
-        wsSequencesProbRow += 1
-    #write sequence probability data to the text Log file
-    sequenceProbOutFname = str(outBaseFname.partition("_u")[0])+".SequenceProb"
-    writeSequencesProbToFile(sequences,sequenceProbOutFname)
-    
-    #write file sequence probability data to the report file
-    wsFileSequencesProbRow = 1
-    for fileSequence in fileSequences:
-        wsFileSequencesProb.write(wsFileSequencesProbRow,0,\
-                fileSequence.getId())
-        wsFileSequencesProb.write(wsFileSequencesProbRow,1,\
-                fileSequence.getSequenceProb())
-        wsFileSequencesProb.write(wsFileSequencesProbRow,2,\
-                fileSequence.getSequenceLength())
-        wsFileSequencesProbRow += 1
-    #write fileSequence probability data to the text Log file
-    fileSequenceProbOutFname = str(outBaseFname.partition("_u")[0])+".FileSequenceProb"
-    writeSequencesProbToFile(fileSequences,fileSequenceProbOutFname)
-    """
-        
 
     #attackerOutFname = str(parsed_log_file.partition("_u")[0])+"_a"
     attackerOutFname = str(outBaseFname.partition("_u")[0])+"_a"
     #run attack_generate command
+    """
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
                         " -n "+str(TotalNumberAttacker)+\
                         " -N "+str(minN1)+"-"+str(maxN1)+\
                         " -P "+str(minP1)+"-"+str(maxP1)+\
                         " -r "+str(minr1)+"-"+str(maxr1)+\
                         " -a "+str(mina1)+"-"+str(maxa1)
+    """
+    attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
+                        " -n "+str(TotalNumberAttacker)+\
+                        " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
+                        " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
+                        " -r "+aggAttParam[2][0]+"-"+aggAttParam[2][1]+\
+                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][0]+\
+                        " -N2 "+aggAttParam[4][0]+"-"+aggAttParam[4][1]+\
+                        " -P2 "+aggAttParam[5][0]+"-"+aggAttParam[5][1]+\
+                        " -N3 "+aggAttParam[6][0]+"-"+aggAttParam[6][1]+\
+                        " -P3 "+aggAttParam[7][0]+"-"+aggAttParam[7][1]+\
+                        " -N3 "+aggAttParam[8][0]+"-"+aggAttParam[8][1]+\
+                        " -P3 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
+
     print attackGenerateCmd
     os.system(attackGenerateCmd)
 
@@ -367,7 +404,7 @@ for model in models:
         misclassificationFiles.append(misclassificationFname)
         misclassificationCmd = "java weka.classifiers.trees.J48"+\
                                 " -T "+testSet+\
-                                " -l "+model+" -i -p 1-16 | grep '+' > "+\
+                                " -l "+model+" -i -p 1-10 | grep '+' > "+\
                                 misclassificationFname
         print misclassificationCmd
         os.system(misclassificationCmd)

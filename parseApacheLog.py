@@ -16,12 +16,9 @@ from progressbar import ProgressBar , Percentage, Bar
 from urlparse import urlparse
 import urllib
 from RequestSemanticModel import *
-import string
-import datetime
-import time
-import pyparsing
+import string,datetime,time,pyparsing
 import argparse
-import os, sys
+import os, sys,math
 import re
 import pickle
 from FileCategory import fileCategoryNames,fileCategories
@@ -32,14 +29,11 @@ indntlevel = 0
 #attacker parameters
 TotalNumberUser = 0
 TotalNumberReq = 0
-minN1 = None
-maxN1 = None
-minP1 = None
-maxP1 = None
-minr1 = None
-maxr1 = None
-mina1 = None
-maxa1 = None
+attackerParameters = [[None,None],[None,None],[None,None],[None,None],
+                   [None,None],[None,None],
+                   [None,None],[None,None],
+                   [None,None],[None,None]]
+
 invalidNPraCount = 0
 invalidFormatCount = 0;
 totalLogCount = 0
@@ -146,7 +140,7 @@ def iSHumanGenerated(URI):
     return None
 # calculate number of sessions 
 # for a session type
-def calculate_N(sessionType):
+def calculate_N(sessionType,higherLevelSesLen):
     global indntlevel
     indntlevel+=1
     # will check is sessionType is None or Empty
@@ -154,7 +148,12 @@ def calculate_N(sessionType):
         indntlevel-=1
         return None
     indntlevel-=1
-    return len(sessionType)
+    N = float(len(sessionType))/higherLevelSesLen
+    if math.modf(N)[0] >= 0.5:
+        N = int(math.modf(N)[1])+1
+    else:
+        N = int(math.modf(N)[1])
+    return N
 
 # calculate average pauses between sessions
 # for a session type
@@ -265,11 +264,11 @@ def calculate_a(sessionType):
         
 # evaluate N,P,r,a parameters for the 1 session type
 # and return a list having N,P,r,a
-def calculateNPra(sessionType):
+def calculateNPra(sessionType,higherLevelSesLen):
     global indntlevel
     indntlevel+=1
     NPraList = None
-    N = calculate_N(sessionType)
+    N = calculate_N(sessionType,higherLevelSesLen)
     P = calculate_P(sessionType)
     r = calculate_r(sessionType)
     a = calculate_a(sessionType)
@@ -289,7 +288,14 @@ def calculate16Parameters(sessionTypes):
     paramList = []
     i =0
     for j in range(len(sessionTypes)):
-        result = calculateNPra(sessionTypes[j])
+        """
+            for the last session types N4 is not the average
+        """
+        if j == (len(sessionTypes)-1):
+            result = calculateNPra(sessionTypes[j],1)
+        else:
+            result = calculateNPra(sessionTypes[j],len(sessionTypes[j+1]))
+
         #print "i=", i
         if result is None:
             #print len(sessionTypes[j])
@@ -310,31 +316,15 @@ def setAttackerParameters(NPraList,R):
     #attacker parameters
     global TotalNumberUser
     global TotalNumberReq
-    global minN1
-    global maxN1
-    global minP1
-    global maxP1
-    global minr1
-    global maxr1
-    global mina1
-    global maxa1
-
-    if (minN1 is None) or (NPraList[0] < minN1):
-        minN1 = NPraList[0]
-    if (maxN1 is None) or (NPraList[0] > maxN1):
-        maxN1 = NPraList[0]
-    if (minP1 is None) or (NPraList[1] < minP1):
-        minP1 = NPraList[1]
-    if (maxP1 is None) or (NPraList[1] > maxP1):
-        maxP1 = NPraList[1]
-    if (minr1 is None) or (NPraList[2] < minr1):
-        minr1 = NPraList[2]
-    if (maxr1 is None) or (NPraList[2] > maxr1):
-        maxr1 = NPraList[2]
-    if (maxa1 is None) or (NPraList[3] < mina1):
-        mina1 = NPraList[3]
-    if (maxa1 is None) or (NPraList[3] > maxa1):
-        maxa1 = NPraList[3]
+    global attackerParameters
+   
+    for index in range(len(NPraList)):
+        if attackerParameters[index][0] is None or \
+                attackerParameters[index][0] > NPraList[index]:
+            attackerParameters[index][0] = NPraList[index]
+        if attackerParameters[index][1] is None or \
+                attackerParameters[index][1] < NPraList[index]:
+            attackerParameters[index][1] = NPraList[index]
 
 #evaluate parameters & write to the outputStream
 def evaluate(sessionTypes,R,outputStream,key):
@@ -358,14 +348,25 @@ def evaluate(sessionTypes,R,outputStream,key):
             print "mal ip",key;
             return 0
     #print logHashTable[key]
-    #set attacker data
-    setAttackerParameters(NPraList,R)
     # output data
     #print "Final R", R
     """
     16 parameters
-    """
     outputData = NPraList
+    """
+    """
+    for 10 parameters , N1,P1,r1,a1,N2,P2,N3,P3,N4,P4
+    """
+    outputData = NPraList[:4]
+    NPraIndex = 4
+    while NPraIndex < len(NPraList):
+        outputData.append(NPraList[NPraIndex])
+        outputData.append(NPraList[NPraIndex+1])
+        NPraIndex += 4
+
+    #set attacker data
+    setAttackerParameters(outputData,R)
+
     """
     4 searching session parameters
     outputData = NPraList[:4]
@@ -957,6 +958,10 @@ print "##################show file sequences ends##################"
 """
 #check attack parameter if they are valid or not
 #if min and max values are same, then set them appropriote values
+for index in range(len(attackerParameters)):
+    if attackerParameters[index][0] ==attackerParameters[index][1]:
+        attackerParameters[index][1] +=1
+"""
 if minN1 == maxN1:
         maxN1 += 1
 if minP1 == maxP1:
@@ -965,7 +970,6 @@ if minr1 == maxr1:
         maxr1 += 1
 if mina1 == maxa1:
         mina1 = 1
-
 #display stats and dump them to pickkle file
 print "minN1: ",minN1
 print "maxN1: ",maxN1
@@ -975,20 +979,22 @@ print "minr1: ",minr1
 print "maxr1: ",maxr1
 print "mina1: ",mina1
 print "maxa1: ",maxa1
+"""
 print "TotalNumberUser: ",TotalNumberUser
 print "TotalNumberReq: ",TotalNumberReq
 print "total log count",totalLogCount
 print "invalid format = ", invalidFormatCount
 print "invalid NPra = ", invalidNPraCount
 print "total Invalid =",invalidFormatCount+invalidNPraCount
+print "attackerParameters",attackerParameters
 
 TotalNumberAttacker =TotalNumberUser 
-outStats = [minN1,maxN1,minP1,maxP1,minr1,maxr1,mina1,maxa1,TotalNumberUser,\
+outStats = [attackerParameters,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
          totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph,\
          fileSequences,fileRequestGraph,SRG,ORG]
 pickle.dump(outStats, open(outStatsFname,"wb"))
-fileRequestGraph.cshow()
+#fileRequestGraph.cshow()
 """
 print "################show SRG starts################"
 SRG.show()
