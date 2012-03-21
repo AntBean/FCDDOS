@@ -1,6 +1,10 @@
 import os,sys,argparse,pickle,copy
 import math, xlwt
 from RequestSemanticModel import writeSequencesProbToFile
+from FcddosUtilities import *
+"""
+convert user or attacker paramerter to string form
+"""
 # parse commandline arguments
 def parseCmdArgs():
     desc = "runExperiment for request dynamics model"
@@ -140,15 +144,8 @@ for parsed_log_file in args.parsed_log_files:
                 
                 
 #convert parameter to str format
-for paramIndex in range(len(aggAttParam)):
-    #number of sessions is in interger, so just convert it str
-    if paramIndex in [0,4,8,12]:
-        aggAttParam[paramIndex][0] = str(aggAttParam[paramIndex][0])
-        aggAttParam[paramIndex][1] = str(aggAttParam[paramIndex][1])
-    else:
-        aggAttParam[paramIndex][0] = str(round(aggAttParam[paramIndex][0],2))
-        aggAttParam[paramIndex][1] = str(round(aggAttParam[paramIndex][1],2))
-    
+floatRoundValue = 2
+aggAttParam = convertListToStr(aggAttParam,floatRoundValue)
 
 for parsed_log_file in args.parsed_log_files:
     outBaseFname = os.path.join(args.outdir,os.path.basename(parsed_log_file))
