@@ -245,7 +245,7 @@ for parsed_log_file in args.parsed_log_files:
                         " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
     """
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
-                        " -n "+str(TotalNumberAttacker)+\
+                        " -n "+str(TotalNumberTestAttacker)+\
                         " -N "+attParam[0][0]+"-"+attParam[0][1]+\
                         " -P "+attParam[1][0]+"-"+attParam[1][1]+\
                         " -r "+attParam[2][0]+"-"+attParam[2][1]+\
@@ -297,7 +297,7 @@ for parsed_log_file in args.parsed_log_files:
     trFname = userTrFname+"_"+str(os.path.basename(attackerTrFname))+".arff"   
     modelFname = userTrFname+"_"+str(os.path.basename(attackerTrFname))+".model"
     trResultsFname = userTrFname+"_"+str(os.path.basename(attackerTrFname))+".trainResults"
-    generateModelCmd = "java weka.classifiers.trees.J48 -t "+trFname+\
+    generateModelCmd = "java -Xms32m -Xmx2048m weka.classifiers.trees.J48 -t "+trFname+\
                    " -d "+modelFname+\
                    " > "+trResultsFname
     print "trFname: ",trFname
@@ -306,14 +306,21 @@ for parsed_log_file in args.parsed_log_files:
     print "generateModelCmd: ",generateModelCmd
     os.system(envVar)
     os.system(generateModelCmd)
-
+    """
+    needed when 100% user and attacker needed in testset
+    """
     #create test sets
-    userTeFname = outBaseFname+"_te"
-    attackerTeFname = attackerOutFname+"_te"
+    """
+    needed for 100 % user test set
     #create the user testing set(includes all user)
     shutil.copy(parsed_log_file, userTeFname)
+    """
     #create the aggressive attacker set(includes all attacker)
+    """
+    needed for 100 % attacker test set
     attackGenerateCmd ="python attack_generate.py -o "+attackerTeFname+\
+    """
+    attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
                         " -n "+str(TotalNumberTestAttacker)+\
                         " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
                         " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
@@ -327,6 +334,15 @@ for parsed_log_file in args.parsed_log_files:
                         " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
     print attackGenerateCmd
     os.system(attackGenerateCmd)
+    """
+    needed to for 33% attacker test
+    """
+    #split attacker set into train & test set
+    splitIntoTrTeSetCmd2 ="python splitinto_train_test.py -i "+\
+                        attackerOutFname+\
+                        " -o "+args.outdir+" -r"
+    print "splitIntoTrTeSetCmd2: ",splitIntoTrTeSetCmd2
+    os.system(splitIntoTrTeSetCmd2)
 
     #mix user & attacker testing set
     mixTeCmd = "python mix_user_attacker.py -u "+userTeFname+\
@@ -346,7 +362,7 @@ for model in models:
     for testSet in testingSets:
         testResultFname = model+"."+str(os.path.basename(testSet))+".testResults"
         testResultFiles.append(testResultFname)
-        testCmd = "java weka.classifiers.trees.J48"+\
+        testCmd = "java -Xms32m -Xmx2048m weka.classifiers.trees.J48"+\
                     " -T "+testSet+" -l "+model+\
                     " -i > "+testResultFname
         print testCmd
@@ -354,12 +370,14 @@ for model in models:
         misclassificationFname =  model+"."+str(os.path.basename(testSet))+\
                                     ".misclassfication"
         misclassificationFiles.append(misclassificationFname)
-        misclassificationCmd = "java weka.classifiers.trees.J48"+\
+        misclassificationCmd = "java -Xms32m -Xmx2048m weka.classifiers.trees.J48"+\
                                 " -T "+testSet+\
                                 " -l "+model+" -i -p 1-10 | grep '+' > "+\
                                 misclassificationFname
         print misclassificationCmd
         os.system(misclassificationCmd)
+    
+    break;
 
 #generate report
 wsfp.write(0, 0, "FP")
@@ -369,7 +387,8 @@ wsbotcount.write(0,0,"#BotsNeeded")
 #Get FP and FN
 col = 1 #since col 0 is already written
 row = 1
-colCount = int(math.sqrt(len(testResultFiles)))
+colCount = int(len(testingSets))
+print testResultFiles
 for testResultFname in testResultFiles:
     #parse training & testing set names
     splittedTRLFname = os.path.basename(testResultFname).split(".")
@@ -426,7 +445,7 @@ for testResultFname in testResultFiles:
 #Get number of bots needed
 col = 1 #since col 0 is already written
 row = 1
-colCount = int(math.sqrt(len(misclassificationFiles)))
+colCount = int(len(testingSets))
 #intilize row, col for minMBNPra details
 minMBDetRow = 1
 minMBDetCol = 0
