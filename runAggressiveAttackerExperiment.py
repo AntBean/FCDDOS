@@ -245,7 +245,7 @@ for parsed_log_file in args.parsed_log_files:
                         " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
     """
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
-                        " -n "+str(TotalNumberTestAttacker)+\
+                        " -n "+str(TotalNumberAttacker)+\
                         " -N "+attParam[0][0]+"-"+attParam[0][1]+\
                         " -P "+attParam[1][0]+"-"+attParam[1][1]+\
                         " -r "+attParam[2][0]+"-"+attParam[2][1]+\
@@ -312,37 +312,37 @@ for parsed_log_file in args.parsed_log_files:
     #create test sets
     """
     needed for 100 % user test set
+    """
     #create the user testing set(includes all user)
     shutil.copy(parsed_log_file, userTeFname)
-    """
     #create the aggressive attacker set(includes all attacker)
     """
-    needed for 100 % attacker test set
-    attackGenerateCmd ="python attack_generate.py -o "+attackerTeFname+\
-    """
+    needed for 33 % attacker test set
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
+    """
+    attackGenerateCmd ="python attack_generate.py -o "+attackerTeFname+\
                         " -n "+str(TotalNumberTestAttacker)+\
-                        " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
-                        " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
-                        " -r "+aggAttParam[2][0]+"-"+aggAttParam[2][1]+\
-                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][1]+\
-                        " -N2 "+aggAttParam[4][0]+"-"+aggAttParam[4][1]+\
-                        " -P2 "+aggAttParam[5][0]+"-"+aggAttParam[5][1]+\
-                        " -N3 "+aggAttParam[6][0]+"-"+aggAttParam[6][1]+\
-                        " -P3 "+aggAttParam[7][0]+"-"+aggAttParam[7][1]+\
-                        " -N4 "+aggAttParam[8][0]+"-"+aggAttParam[8][1]+\
-                        " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
+                        " -N "+attParam[0][0]+"-"+attParam[0][1]+\
+                        " -P "+attParam[1][0]+"-"+attParam[1][1]+\
+                        " -r "+attParam[2][0]+"-"+attParam[2][1]+\
+                        " -a "+attParam[3][0]+"-"+attParam[3][1]+\
+                        " -N2 "+attParam[4][0]+"-"+attParam[4][1]+\
+                        " -P2 "+attParam[5][0]+"-"+attParam[5][1]+\
+                        " -N3 "+attParam[6][0]+"-"+attParam[6][1]+\
+                        " -P3 "+attParam[7][0]+"-"+attParam[7][1]+\
+                        " -N4 "+attParam[8][0]+"-"+attParam[8][1]+\
+                        " -P4 "+attParam[9][0]+"-"+attParam[9][1]
     print attackGenerateCmd
     os.system(attackGenerateCmd)
     """
     needed to for 33% attacker test
-    """
     #split attacker set into train & test set
     splitIntoTrTeSetCmd2 ="python splitinto_train_test.py -i "+\
                         attackerOutFname+\
                         " -o "+args.outdir+" -r"
     print "splitIntoTrTeSetCmd2: ",splitIntoTrTeSetCmd2
     os.system(splitIntoTrTeSetCmd2)
+    """
 
     #mix user & attacker testing set
     mixTeCmd = "python mix_user_attacker.py -u "+userTeFname+\
