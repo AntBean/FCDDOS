@@ -235,8 +235,8 @@ for parsed_log_file in args.parsed_log_files:
                         " -P2 "+aggAttParam[5][0]+"-"+aggAttParam[5][1]+\
                         " -N3 "+aggAttParam[6][0]+"-"+aggAttParam[6][1]+\
                         " -P3 "+aggAttParam[7][0]+"-"+aggAttParam[7][1]+\
-                        " -N3 "+aggAttParam[8][0]+"-"+aggAttParam[8][1]+\
-                        " -P3 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
+                        " -N4 "+aggAttParam[8][0]+"-"+aggAttParam[8][1]+\
+                        " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
 
     print attackGenerateCmd
     os.system(attackGenerateCmd)
