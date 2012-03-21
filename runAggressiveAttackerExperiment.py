@@ -1,4 +1,4 @@
-import os,sys,argparse,pickle,copy
+import os,sys,argparse,pickle,copy,shutil
 import math, xlwt
 from RequestSemanticModel import writeSequencesProbToFile
 from FcddosUtilities import *
@@ -161,6 +161,7 @@ for parsed_log_file in args.parsed_log_files:
     outStats = pickle.load(pickleStream)
     #print "outStats: ", outStats
     #attacker parameters
+    attParam = outStats[0]
     TotalNumberUser = outStats[1]
     TotalNumberAttacker = outStats[2]
     TotalNumberReq = outStats[3]
@@ -172,15 +173,18 @@ for parsed_log_file in args.parsed_log_files:
     requestGraph = outStats[9]
     fileSequences = outStats[10]
     fileRequestGraph = outStats[11]
-
+    
+    #convert dataset attacker parameter to str format
+    attParam = convertListToStr(attParam,floatRoundValue)
+    
     #update TotalNumberOfAttacker
-    TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
+    TotalNumberTestAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
     
     ID = str(os.path.basename(parsed_log_file).partition("_u")[0])
     #write stats data to report file
     wsstats.write(statsRowIndx, 0, ID)
     wsstats.write(statsRowIndx, 1, TotalNumberUser)
-    wsstats.write(statsRowIndx, 2, TotalNumberAttacker)
+    wsstats.write(statsRowIndx, 2, TotalNumberTestAttacker)
     wsstats.write(statsRowIndx, 3, TotalNumberReq)
     wsstats.write(statsRowIndx, 4, invalidFormatCount)
     wsstats.write(statsRowIndx, 5, invalidNPraCount)
@@ -225,19 +229,33 @@ for parsed_log_file in args.parsed_log_files:
                         " -r "+str(minr1)+"-"+str(maxr1)+\
                         " -a "+str(mina1)+"-"+str(maxa1)
     """
+    """
+    for training using aggressive attacker paramter
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
                         " -n "+str(TotalNumberAttacker)+\
                         " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
                         " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
                         " -r "+aggAttParam[2][0]+"-"+aggAttParam[2][1]+\
-                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][0]+\
+                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][1]+\
                         " -N2 "+aggAttParam[4][0]+"-"+aggAttParam[4][1]+\
                         " -P2 "+aggAttParam[5][0]+"-"+aggAttParam[5][1]+\
                         " -N3 "+aggAttParam[6][0]+"-"+aggAttParam[6][1]+\
                         " -P3 "+aggAttParam[7][0]+"-"+aggAttParam[7][1]+\
                         " -N4 "+aggAttParam[8][0]+"-"+aggAttParam[8][1]+\
                         " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
-
+    """
+    attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
+                        " -n "+str(TotalNumberAttacker)+\
+                        " -N "+attParam[0][0]+"-"+attParam[0][1]+\
+                        " -P "+attParam[1][0]+"-"+attParam[1][1]+\
+                        " -r "+attParam[2][0]+"-"+attParam[2][1]+\
+                        " -a "+attParam[3][0]+"-"+attParam[3][1]+\
+                        " -N2 "+attParam[4][0]+"-"+attParam[4][1]+\
+                        " -P2 "+attParam[5][0]+"-"+attParam[5][1]+\
+                        " -N3 "+attParam[6][0]+"-"+attParam[6][1]+\
+                        " -P3 "+attParam[7][0]+"-"+attParam[7][1]+\
+                        " -N4 "+attParam[8][0]+"-"+attParam[8][1]+\
+                        " -P4 "+attParam[9][0]+"-"+attParam[9][1]
     print attackGenerateCmd
     os.system(attackGenerateCmd)
 
@@ -288,6 +306,35 @@ for parsed_log_file in args.parsed_log_files:
     print "generateModelCmd: ",generateModelCmd
     os.system(envVar)
     os.system(generateModelCmd)
+
+    #create test sets
+    userTeFname = outBaseFname+"_te"
+    attackerTeFname = attackerOutFname+"_te"
+    #create the user testing set(includes all user)
+    shutil.copy(parsed_log_file, userTeFname)
+    #create the aggressive attacker set(includes all attacker)
+    attackGenerateCmd ="python attack_generate.py -o "+attackerTeFname+\
+                        " -n "+str(TotalNumberTestAttacker)+\
+                        " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
+                        " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
+                        " -r "+aggAttParam[2][0]+"-"+aggAttParam[2][1]+\
+                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][1]+\
+                        " -N2 "+aggAttParam[4][0]+"-"+aggAttParam[4][1]+\
+                        " -P2 "+aggAttParam[5][0]+"-"+aggAttParam[5][1]+\
+                        " -N3 "+aggAttParam[6][0]+"-"+aggAttParam[6][1]+\
+                        " -P3 "+aggAttParam[7][0]+"-"+aggAttParam[7][1]+\
+                        " -N4 "+aggAttParam[8][0]+"-"+aggAttParam[8][1]+\
+                        " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
+    print attackGenerateCmd
+    os.system(attackGenerateCmd)
+
+    #mix user & attacker testing set
+    mixTeCmd = "python mix_user_attacker.py -u "+userTeFname+\
+            " -a "+attackerTeFname+\
+            " -f arffFormat"
+    print "mixTeCmd", mixTeCmd
+    os.system(mixTeCmd)
+
     #update models & testingSets
     models.append(modelFname)
     teFname = userTeFname +"_"+ str(os.path.basename(attackerTeFname))+".arff"
