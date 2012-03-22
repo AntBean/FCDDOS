@@ -1,4 +1,4 @@
-import os,sys,argparse,pickle,copy
+import os,sys,argparse,pickle,copy,shutil
 import math, xlwt
 from RequestSemanticModel import writeSequencesProbToFile
 from FcddosUtilities import *
@@ -174,7 +174,7 @@ for parsed_log_file in args.parsed_log_files:
     fileRequestGraph = outStats[11]
 
     #update TotalNumberOfAttacker
-    TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
+    TotalNumberTestAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
     
     ID = str(os.path.basename(parsed_log_file).partition("_u")[0])
     #write stats data to report file
@@ -226,11 +226,11 @@ for parsed_log_file in args.parsed_log_files:
                         " -a "+str(mina1)+"-"+str(maxa1)
     """
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
-                        " -n "+str(TotalNumberAttacker)+\
+                        " -n "+str(TotalNumberTestAttacker)+\
                         " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
                         " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
                         " -r "+aggAttParam[2][0]+"-"+aggAttParam[2][1]+\
-                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][0]+\
+                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][1]+\
                         " -N2 "+aggAttParam[4][0]+"-"+aggAttParam[4][1]+\
                         " -P2 "+aggAttParam[5][0]+"-"+aggAttParam[5][1]+\
                         " -N3 "+aggAttParam[6][0]+"-"+aggAttParam[6][1]+\
@@ -279,7 +279,7 @@ for parsed_log_file in args.parsed_log_files:
     trFname = userTrFname+"_"+str(os.path.basename(attackerTrFname))+".arff"   
     modelFname = userTrFname+"_"+str(os.path.basename(attackerTrFname))+".model"
     trResultsFname = userTrFname+"_"+str(os.path.basename(attackerTrFname))+".trainResults"
-    generateModelCmd = "java weka.classifiers.trees.J48 -t "+trFname+\
+    generateModelCmd = "java -Xms32m -Xmx2048m weka.classifiers.trees.J48 -t "+trFname+\
                    " -d "+modelFname+\
                    " > "+trResultsFname
     print "trFname: ",trFname
@@ -288,6 +288,51 @@ for parsed_log_file in args.parsed_log_files:
     print "generateModelCmd: ",generateModelCmd
     os.system(envVar)
     os.system(generateModelCmd)
+
+    """
+    needed when 100% user and attacker needed in testset
+    """
+    #create test sets
+    """
+    needed for 100 % user test set
+    """
+    #create the user testing set(includes all user)
+    shutil.copy(parsed_log_file, userTeFname)
+    #create the aggressive attacker set(includes all attacker)
+    """
+    needed for 33 % attacker test set
+    attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
+    """
+    attackGenerateCmd ="python attack_generate.py -o "+attackerTeFname+\
+                        " -n "+str(TotalNumberTestAttacker)+\
+                        " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
+                        " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
+                        " -r "+aggAttParam[2][0]+"-"+aggAttParam[2][1]+\
+                        " -a "+aggAttParam[3][0]+"-"+aggAttParam[3][1]+\
+                        " -N2 "+aggAttParam[4][0]+"-"+aggAttParam[4][1]+\
+                        " -P2 "+aggAttParam[5][0]+"-"+aggAttParam[5][1]+\
+                        " -N3 "+aggAttParam[6][0]+"-"+aggAttParam[6][1]+\
+                        " -P3 "+aggAttParam[7][0]+"-"+aggAttParam[7][1]+\
+                        " -N4 "+aggAttParam[8][0]+"-"+aggAttParam[8][1]+\
+                        " -P4 "+aggAttParam[9][0]+"-"+aggAttParam[9][1]
+    print attackGenerateCmd
+    os.system(attackGenerateCmd)
+    """
+    needed to for 33% attacker test
+    #split attacker set into train & test set
+    splitIntoTrTeSetCmd2 ="python splitinto_train_test.py -i "+\
+                        attackerOutFname+\
+                        " -o "+args.outdir+" -r"
+    print "splitIntoTrTeSetCmd2: ",splitIntoTrTeSetCmd2
+    os.system(splitIntoTrTeSetCmd2)
+    """
+
+    #mix user & attacker testing set
+    mixTeCmd = "python mix_user_attacker.py -u "+userTeFname+\
+            " -a "+attackerTeFname+\
+            " -f arffFormat"
+    print "mixTeCmd", mixTeCmd
+    os.system(mixTeCmd)
     #update models & testingSets
     models.append(modelFname)
     teFname = userTeFname +"_"+ str(os.path.basename(attackerTeFname))+".arff"
@@ -299,7 +344,7 @@ for model in models:
     for testSet in testingSets:
         testResultFname = model+"."+str(os.path.basename(testSet))+".testResults"
         testResultFiles.append(testResultFname)
-        testCmd = "java weka.classifiers.trees.J48"+\
+        testCmd = "java -Xms32m -Xmx2048m weka.classifiers.trees.J48"+\
                     " -T "+testSet+" -l "+model+\
                     " -i > "+testResultFname
         print testCmd
@@ -307,13 +352,13 @@ for model in models:
         misclassificationFname =  model+"."+str(os.path.basename(testSet))+\
                                     ".misclassfication"
         misclassificationFiles.append(misclassificationFname)
-        misclassificationCmd = "java weka.classifiers.trees.J48"+\
+        misclassificationCmd = "java -Xms32m -Xmx2048m weka.classifiers.trees.J48"+\
                                 " -T "+testSet+\
                                 " -l "+model+" -i -p 1-10 | grep '+' > "+\
                                 misclassificationFname
         print misclassificationCmd
         os.system(misclassificationCmd)
-
+    break
 #generate report
 wsfp.write(0, 0, "FP")
 wsfn.write(0, 0, "FN")
@@ -322,7 +367,7 @@ wsbotcount.write(0,0,"#BotsNeeded")
 #Get FP and FN
 col = 1 #since col 0 is already written
 row = 1
-colCount = int(math.sqrt(len(testResultFiles)))
+colCount = int(len(testingSets))
 for testResultFname in testResultFiles:
     #parse training & testing set names
     splittedTRLFname = os.path.basename(testResultFname).split(".")
@@ -379,7 +424,7 @@ for testResultFname in testResultFiles:
 #Get number of bots needed
 col = 1 #since col 0 is already written
 row = 1
-colCount = int(math.sqrt(len(misclassificationFiles)))
+colCount = int(len(testingSets))
 #intilize row, col for minMBNPra details
 minMBDetRow = 1
 minMBDetCol = 0
