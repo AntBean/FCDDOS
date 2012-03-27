@@ -21,6 +21,8 @@ def parseCmdArgs():
             help="Output Directory")
     parser.add_argument("-r", "--attacker-user-ratio", default=1,
             help="attacker to user ratio")
+    parser.add_argument("-t", "--attacker-user-train-ratio", default=1,
+            help="attacker to user train ratio")
     args = parser.parse_args()
     return args
 
@@ -174,7 +176,10 @@ for parsed_log_file in args.parsed_log_files:
     fileRequestGraph = outStats[11]
 
     #update TotalNumberOfAttacker
-    TotalNumberTestAttacker = (TotalNumberTestAttacker * int(args.attacker_user_ratio))
+    TotalNumberTrainAttacker = (TotalNumberAttacker * int(
+                args.attacker_user_train_ratio))
+    TotalNumberTestAttacker = (TotalNumberAttacker * int(
+                args.attacker_user_ratio))
     
     ID = str(os.path.basename(parsed_log_file).partition("_u")[0])
     #write stats data to report file
@@ -226,7 +231,7 @@ for parsed_log_file in args.parsed_log_files:
                         " -a "+str(mina1)+"-"+str(maxa1)
     """
     attackGenerateCmd ="python attack_generate.py -o "+attackerOutFname+\
-                        " -n "+str(TotalNumberTestAttacker)+\
+                        " -n "+str(TotalNumberTrainAttacker)+\
                         " -N "+aggAttParam[0][0]+"-"+aggAttParam[0][1]+\
                         " -P "+aggAttParam[1][0]+"-"+aggAttParam[1][1]+\
                         " -r "+aggAttParam[2][0]+"-"+aggAttParam[2][1]+\
@@ -446,7 +451,7 @@ for misclassificationFname in misclassificationFiles:
         exit(0)
     
     misClsficResLines = misClsficResInStream.readlines()
-    minMB = None # will store the minimum botnet size
+    minMB = "INF" # will store the minimum botnet size
     # will keep track of NPra parameters for the bot with min botnet size
     minMBNPra = None     
 
@@ -458,35 +463,9 @@ for misclassificationFname in misclassificationFiles:
                 #print splittedMRL
                 NPraList = splittedMRL[5].split("(")[1].split(")")[0].split(",")
                 print NPraList
-                N1=float(NPraList[0])
-                P1=float(NPraList[1])
-                r1=float(NPraList[2])
-                a1=float(NPraList[3])
-                N2=float(NPraList[4])
-                P2=float(NPraList[5])
-                N3=float(NPraList[6])
-                P3=float(NPraList[7])
-                N4=float(NPraList[8])
-                P4=float(NPraList[9])
-                totalUserTime =((N4-1)*P4+N4*((N3-1)*P3+N3*((N2-1)*P2+N2*(
-                                    (N1-1)*P1+N1*((r1-1)*a1)))))
-                totalNumberOfRequest = N4*N3*N2*N1*r1
-                averageRequestRate = float(totalNumberOfRequest)/totalUserTime
-                MB = int((1000/averageRequestRate)*(600/totalUserTime))
-                """
-                N=float(NPraList[0])
-                P=float(NPraList[1])
-                r=float(NPraList[2])
-                a=float(NPraList[3])
-                Pt = (P*(N-1))
-                #MB = int(1000*(a+P/r)*(600/(Pt*(N-1)+N*r*a)))
-                This should be the correct calculation as P*(N-1) will give the 
-                sum of all the pauses between searching session, so again we don't need
-                to multiply Pt with N-1
-                MB = int(1000*(a+P/r)*(600/(P*(N-1)+N*r*a)))
-                """
+                MB = getMinimumBotnetSize(NPraList)
                 #print "MB1=",MB
-                if minMB is None or MB < minMB:
+                if minMB is "INF" or ((MB is not "INF") and (int(MB) < int(minMB))):
                     minMB = MB
                     minMBNPra = NPraList
 
@@ -495,10 +474,7 @@ for misclassificationFname in misclassificationFiles:
         wsbotcount.write(row, 0, trnSet)
     if row ==1:
         wsbotcount.write(0, col, tstSet)
-    if minMB is None:
-        wsbotcount.write(row, col, "INF")
-    else:
-        wsbotcount.write(row, col, str(minMB))
+    wsbotcount.write(row, col, str(minMB))
 
     #write NPra for the minMB bot
     wsMinMBDetails.write(minMBDetRow,minMBDetCol,trnSet);
