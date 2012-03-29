@@ -1,4 +1,4 @@
-import os, sys, random
+import os, sys, random,numpy
 from progressbar import ProgressBar , Percentage, Bar
 from collections import defaultdict
 from operator import itemgetter
@@ -205,10 +205,12 @@ def getThresholds(requestGraph,sequences):
 """
 method to calculate threshold for combined1 forumula
 """
-def getThresholdsCombined1(dirRequestGraph,fileRequestGraph,sequences):
+def getThresholdsCombined1(dirRequestGraph,fileRequestGraph,
+        parentDirToFileGraph,sequences):
     seqProb = []
     for seq in sequences:
-        seq.calculateSequenceProbCombined1(dirRequestGraph, fileRequestGraph)
+        seq.calculateSequenceProbCombined1(dirRequestGraph, fileRequestGraph,
+               parentDirToFileGraph)
         seqProb.append(round(seq.getSequenceProb(),2))
     return calculateThresholds(seqProb)
 
@@ -284,8 +286,8 @@ def testSequences(requestGraph,userSequences,attackerSequences,thresholds):
 """
 method to test user and attacker sequences using combined1
 """
-def testSequencesCombined1(dirRequestGraph,fileRequestGraph,userSequences,\
-        attackerSequences,thresholds):
+def testSequencesCombined1(dirRequestGraph,fileRequestGraph,\
+        parentDirToFileGraph,userSequences,attackerSequences,thresholds):
     # intilize the progress bar
     print "#################testSequencesCombined1 Started#############"
     testSeqProgBarEndStatus = len(userSequences)+len(attackerSequences)
@@ -294,13 +296,13 @@ def testSequencesCombined1(dirRequestGraph,fileRequestGraph,userSequences,\
             maxval=testSeqProgBarEndStatus).start()
     for seq in userSequences:
         seq.testSequenceCombined1(dirRequestGraph,fileRequestGraph,\
-                thresholds)
+                parentDirToFileGraph,thresholds)
         #update the progress bar
         testSeqProgBarStartStatus += 1
         testSeqProgBar.update(testSeqProgBarStartStatus)
     for seq in attackerSequences:
         seq.testSequenceCombined1(dirRequestGraph,fileRequestGraph,\
-                thresholds)   
+                parentDirToFileGraph,thresholds)   
         #update the progress bar
         testSeqProgBarStartStatus += 1
         testSeqProgBar.update(testSeqProgBarStartStatus)
@@ -442,17 +444,23 @@ class Sequence:
     well as directory level information
     sequences must contain file level information
     """
-    def calculateSequenceProbCombined1(self,dirRequestGraph,fileRequestGraph):
+    def calculateSequenceProbCombined1(self,dirRequestGraph,fileRequestGraph,
+            parentDirToFileGraph):
         requestSequence = self.getRequestSequence()
         self.setSequenceProb(fileRequestGraph.getSequenceProbCombined1(\
-                    requestSequence,dirRequestGraph))
+                    requestSequence,dirRequestGraph,parentDirToFileGraph))
         """
         find the probabilities for first request and each edge in 
         in request sequences
         """
         sequence = requestSequence
-        firstNodeVisitedProb = float(dirRequestGraph.getNodeVisitedProb(
+        dirFirstNode = str(str(os.path.dirname(sequence[0])))
+        firstNodeVisitedProb = float(fileRequestGraph.getNodeVisitedProb(
                     sequence[0])) 
+        if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirFirstNode):
+            firstNodeVisitedProb = float(dirRequestGraph.getNodeVisitedProb(
+                        dirFirstNode)) 
+
         self.edgeProbs.append(firstNodeVisitedProb)
         edgeCumProb = float(firstNodeVisitedProb)
         self.edgeCumProbs.append(edgeCumProb)
@@ -466,8 +474,12 @@ class Sequence:
             edgeTP =fileRequestGraph.getEdgeTransitionalProb(parent,child)  
             dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(
                     dirParent,dirChild)
-            self.edgeProbs.append(edgeTP*dirEdgeTP)
-            edgeCumProb *= (float(edgeTP))/(len(self.edgeCumProbs)+1)
+
+            if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirChild):
+                edgeTP = dirEdgeTP
+
+            self.edgeProbs.append(edgeTP)
+            edgeCumProb = (float(sum(self.edgeProbs)))/(len(self.edgeProbs))
             self.edgeCumProbs.append(edgeCumProb)
 
     """
@@ -482,10 +494,11 @@ class Sequence:
     and combined1 formula
     """
     def testSequenceCombined1(self,dirRequestGraph,fileRequestGraph,
-            thresholds):
+            parentDirToFileGraph,thresholds):
         requestSequence = self.getRequestSequence()
-        self.setTestResults(fileRequestGraph.testSequenceCombined1(\
-                    requestSequence,dirRequestGraph,thresholds))
+        self.setTestResults(fileRequestGraph.testSequenceCombined1(
+                    requestSequence,dirRequestGraph,parentDirToFileGraph,
+                    thresholds))
 
     """
        method to set test results
@@ -535,7 +548,8 @@ class RequestGraph:
     def __init__(self):
         """
             request graph is map with key as the nodes
-            and value as the list[map,mycount]
+            and value as the 
+            list[map,mycount,isChildTransProbRougliyEqually,std,mean]
         """
         self.requestGraph = {}
         self.noTransitionalProb = 0;
@@ -548,7 +562,7 @@ class RequestGraph:
     def append(self,parent,child,addChildAsParent=False):
         self.totalNodesCount += 1
         if self.requestGraph.has_key(parent) == False:
-            self.requestGraph[parent] = [{},1]
+            self.requestGraph[parent] = [{},1,False,0.0,0.0]
             self.requestGraph[parent][0][child] = Edge()
 
         else:
@@ -563,7 +577,7 @@ class RequestGraph:
         if addChildAsParent ==True:
             self.totalNodesCount += 1
             if self.requestGraph.has_key(child) == False:
-                self.requestGraph[child] = [{},1]
+                self.requestGraph[child] = [{},1,False,0.0,0.0]
             else:
                 self.requestGraph[child][1] += 1
     
@@ -573,7 +587,7 @@ class RequestGraph:
     def appendNode(self,parent):
         self.totalNodesCount += 1
         if self.requestGraph.has_key(parent) == False:
-            self.requestGraph[parent] = [{},1]
+            self.requestGraph[parent] = [{},1,False,0.0,0.0]
         else:
             self.requestGraph[parent][1] += 1
                 
@@ -585,6 +599,47 @@ class RequestGraph:
             return self.requestGraph[parent][0][child].getEdgeTransitionalProb()
         except KeyError:
             return self.noTransitionalProb
+
+    """
+    return Standard deviation of trans probs of childs of node
+    """
+    def getNodeSTD(self,node):
+        if self.requestGraph.has_key(node) == True:
+            return self.requestGraph[node][3]
+        else:
+            return self.noTransitionalProb
+    """
+    return mean of trans probs of childs of node
+    """
+    def getNodeMean(self,node):
+        if self.requestGraph.has_key(node) == True:
+            return self.requestGraph[node][4]
+        else:
+            return self.noTransitionalProb
+    
+    """
+    set Standard deviation of trans probs of childs of node
+    """
+    def setNodeSTD(self,node,std):
+        self.requestGraph[node][3] = std
+
+    """
+    set mean of trans probs of childs of node
+    """
+    def setNodeMean(self,node,mean):
+        self.requestGraph[node][4] = mean
+
+    """
+    to check if the transition probabilities of child are
+    rougly equal
+    """
+    def isChildTransProbsRoughlyEqual(self,node):
+        isChidlTPREqual = False
+        if self.requestGraph.has_key(node) == True:
+            if (self.getNodeSTD(node)/self.getNodeMean(node))*100 < 10.0:
+                isChidlTPREqual = True
+        return isChidlTPREqual
+
 
     """
     method to return the probabity of node out of all the nodes visited
@@ -631,14 +686,22 @@ class RequestGraph:
             maxval=len(self.requestGraph)).start()
         status = 0
         for parent in self.requestGraph.keys():
+            edgeTransProbs = []
+            sumOfEdgeCount = self.getSumOfEdgeCount(parent)
             for child in self.requestGraph[parent][0].keys():
                 parentNode = self.requestGraph[parent]
                 edge = parentNode[0][child]
                 edgeCount = edge.getEdgeCount()
-                sumOfEdgeCount = self.getSumOfEdgeCount(parent)
                 transitionalProb = float(edgeCount)/sumOfEdgeCount
                 transitionalProb = float(str(round(transitionalProb,6)))
                 edge.setEdgeTransitionalProb(transitionalProb)
+                edgeTransProbs.append(transitionalProb)
+            #calculate standard deviation and mean 
+            #of edge trans probs for this parent
+            self.setNodeSTD(parent,
+                    float(str(round(numpy.std(edgeTransProbs),6))))
+            self.setNodeMean(parent,
+                    float(str(round(numpy.mean(edgeTransProbs),6))))
             #update the progress bar
             status +=1
             readProgBar.update(status)
@@ -675,7 +738,8 @@ class RequestGraph:
     edge transitional probabilities information from the request graph
     and from the dir request graph
     """
-    def getSequenceProbCombined1(self,sequence,dirRequestGraph):
+    def getSequenceProbCombined1(self,sequence,dirRequestGraph,
+            parentDirToFileGraph):
         transitionalProbs = []
         dirEdgeTransitionalProbs = []
         for i in range(len(sequence)-1):
@@ -688,17 +752,22 @@ class RequestGraph:
             edgeTP =self.getEdgeTransitionalProb(parent,child)  
             dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(\
                     dirParent,dirChild)  
-
-            transitionalProbs.append(edgeTP*dirEdgeTP)
+            if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirChild):
+                edgeTP = dirEdgeTP
+            transitionalProbs.append(edgeTP)
             dirEdgeTransitionalProbs.append(dirEdgeTP)
         """        
         combined1SequenceProb = float(self.firstPageVisitedProb+\
                 sum(transitionalProbs))/\
                 (1+len(dirEdgeTransitionalProbs))
         """
-        dirFirstNode = str(str(os.path.dirname(sequence[0]))) 
-        combined1SequenceProb = float(dirRequestGraph.getNodeVisitedProb(\
-                    dirFirstNode)+sum(transitionalProbs))/\
+        dirFirstNode = str(str(os.path.dirname(sequence[0])))
+        firstNodeVisitedProb = float(self.getNodeVisitedProb(sequence[0]))
+        if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirFirstNode):
+            firstNodeVisitedProb = float(dirRequestGraph.getNodeVisitedProb(
+                    dirFirstNode))
+
+        combined1SequenceProb = (firstNodeVisitedProb+sum(transitionalProbs))/\
             (1+len(dirEdgeTransitionalProbs))
 
         return float(str(round(combined1SequenceProb,6)))
@@ -734,7 +803,8 @@ class RequestGraph:
     """
     method to test the sequence using thresholds and the combined1 formula
     """
-    def testSequenceCombined1(self,sequence,dirRequestGraph,thresholds):
+    def testSequenceCombined1(self,sequence,dirRequestGraph,parentDirToFileGraph,
+            thresholds):
         testResults = {}
         for threshold in thresholds:
             testResults[threshold] = [False,len(sequence)]
@@ -742,7 +812,9 @@ class RequestGraph:
             curSeqProb = self.firstPageVisitedProb
             """
             dirFirstNode = str(str(os.path.dirname(sequence[0]))) 
-            curSeqProb = dirRequestGraph.getNodeVisitedProb(dirFirstNode)
+            curSeqProb = self.getNodeVisitedProb(sequence[0])
+            if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirFirstNode):
+                curSeqProb = dirRequestGraph.getNodeVisitedProb(dirFirstNode)
             curSeqLen = 1
             for i in range(len(sequence)-1):
                 parent = sequence[i]
@@ -755,7 +827,10 @@ class RequestGraph:
                 dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(\
                         dirParent,dirChild)  
                  
-                edgeTP = fileEdgeTP*dirEdgeTP
+                edgeTP = fileEdgeTP
+                if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirChild):
+                    edgeTP = dirEdgeTP
+
                 curSeqProb += edgeTP
                 curSeqLen += 1
                 if (curSeqProb/float(curSeqLen)) < threshold:
@@ -848,6 +923,7 @@ class RequestGraph:
         print "#############getAttackerSequences Ended###############"
         print "\n"
         return attackerSequences
+
     """
     method to write the request Graph to the file
     """
@@ -895,7 +971,37 @@ class RequestGraph:
                 requestGraphOutStream.write(edgeOutString)
             #leave two lines after one parent data
             requestGraphOutStream.write("\n\n")
+    """
+    method to write stadard deviation of probs of chid to the file
+    """
+    def writeSTDToFile(self,fileName):
+        space = " "
+        colWidth = 48
+        colWidth2 = 16
+        try:
+            requestGraphOutStream = open(fileName,"w")
+        except:
+            print "Error Opening request graph output file: ",fileName
 
+        #first write header    
+        header = "ParentNode"+colWidth*space+\
+                    "ParentSTD"+colWidth2*space+\
+                    "ParentMean"+colWidth2*space+\
+                    "isChildTPREqual"+colWidth2*space+"\n"
+        requestGraphOutStream.write(header)
+        for parent in self.requestGraph.keys():
+            parentSTD = str(self.getNodeSTD(parent))
+            parentMean = str(self.getNodeMean(parent))
+            isChildTPREqual = str(self.isChildTransProbsRoughlyEqual(parent))
+            
+            parentOutString = str(parent)+\
+                              ((len("ParentNode")-len(parent)+colWidth)*space)+\
+                                str(parentSTD)+\
+                              ((len("ParentSTD")-len(parentSTD)+colWidth2)*space)+\
+                                str(parentMean)+\
+                              ((len("ParentMean")-len(parentMean)+colWidth2)*space)+\
+                                str(isChildTPREqual)+"\n"
+            requestGraphOutStream.write(parentOutString)
 
 """
 funtion which takes ip and returns incremented ip

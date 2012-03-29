@@ -115,10 +115,11 @@ for parsed_log_file in args.parsed_log_files:
     outStats = pickle.load(pickleStream)
     #print "outStats: ", outStats
     
-    dirTrainSequences = outStats[15]
-    dirRequestGraph = outStats[16]
-    fileTrainSequences = outStats[17]
-    fileRequestGraph = outStats[18]
+    dirTrainSequences = outStats[8]
+    dirRequestGraph = outStats[9]
+    fileTrainSequences = outStats[10]
+    fileRequestGraph = outStats[11]
+    parentDirToFileGraph = outStats[14]
     combined1TrainSequences = copy.deepcopy(fileTrainSequences)
     
     trnSetId = str(os.path.basename(outBaseFname))
@@ -126,12 +127,13 @@ for parsed_log_file in args.parsed_log_files:
     #calculate edge transitional probabilites: generate model data
     dirRequestGraph.calculateEdgeTransitionalProb()
     fileRequestGraph.calculateEdgeTransitionalProb()
+    parentDirToFileGraph.calculateEdgeTransitionalProb()
 
     #get 4 thresholds for experimental purpose
     dirThresholds=getThresholds(dirRequestGraph,dirTrainSequences)
     fileThresholds=getThresholds(fileRequestGraph,fileTrainSequences)
     combined1Thresholds=getThresholdsCombined1(dirRequestGraph,fileRequestGraph,
-            combined1TrainSequences)
+            parentDirToFileGraph,combined1TrainSequences)
     #print "dirThresholds",dirThresholds
     #print "fileThresholds",fileThresholds
     #print "combined1Thresholds",combined1Thresholds
@@ -147,8 +149,13 @@ for parsed_log_file in args.parsed_log_files:
     #write models to log file
     dirRequestGraphLogFname = outBaseFname+".dirmodel.log"
     fileRequestGraphLogFname = outBaseFname+".filemodel.log"
+    dirFileRequestGraphLogFname = outBaseFname+".dirFilemodel.log"
+    dirFileRequestGraphSTDLogFname = outBaseFname+".dirFilemodelSTD.log"
+    
     dirRequestGraph.writeToFile(dirRequestGraphLogFname)
     fileRequestGraph.writeToFile(fileRequestGraphLogFname)
+    parentDirToFileGraph.writeToFile(dirFileRequestGraphLogFname)
+    parentDirToFileGraph.writeSTDToFile(dirFileRequestGraphSTDLogFname)
 
     #add sheets to capture test results for this model
     wsDirSP = wbDirSP.add_sheet(trnSetId)
@@ -182,11 +189,12 @@ for parsed_log_file in args.parsed_log_files:
         
         testSetStats = pickle.load(testSetPickleStream)
         
-        TotalNumberAttacker = testSetStats[9]
-        dirTestSequences = testSetStats[15]
-        dirTestRequestGraph = testSetStats[16]
-        fileTestSequences = testSetStats[17]
-        fileTestRequestGraph = testSetStats[18]
+        TotalNumberAttacker = testSetStats[2]
+        dirTestSequences = testSetStats[8]
+        dirTestRequestGraph = testSetStats[9]
+        fileTestSequences = testSetStats[10]
+        fileTestRequestGraph = testSetStats[11]
+        parentDirToFileTestGraph = testSetStats[14]
         
         #update TotalNumberOfAttacker
         TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
@@ -270,13 +278,13 @@ for parsed_log_file in args.parsed_log_files:
             CalSPProgBarStartStatus += 1
         for combined1TestSequence in combined1TestSequences:
             combined1TestSequence.calculateSequenceProbCombined1(dirRequestGraph,\
-                    fileRequestGraph)
+                    fileRequestGraph,parentDirToFileGraph)
             CalSPProgBarStartStatus += 1
             #update the progress bar
             calSPProgBar.update(CalSPProgBarStartStatus)
         for combined1TestAttackerSequence in combined1TestAttackerSequences:
             combined1TestAttackerSequence.calculateSequenceProbCombined1(\
-                    dirRequestGraph,fileRequestGraph)
+                    dirRequestGraph,fileRequestGraph,parentDirToFileGraph)
             CalSPProgBarStartStatus += 1
             #update the progress bar
             calSPProgBar.update(CalSPProgBarStartStatus)
@@ -289,7 +297,7 @@ for parsed_log_file in args.parsed_log_files:
         fileTestResults = testSequences(fileRequestGraph,fileTestSequences,\
                 fileTestAttackerSequences,fileThresholds)
         combined1TestResults = testSequencesCombined1(dirRequestGraph,\
-                fileRequestGraph,combined1TestSequences,\
+                fileRequestGraph,parentDirToFileGraph,combined1TestSequences,\
                 combined1TestAttackerSequences,combined1Thresholds)
         """
         print "dirTestResults: "

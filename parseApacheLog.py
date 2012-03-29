@@ -38,6 +38,10 @@ invalidNPraCount = 0
 invalidFormatCount = 0;
 totalLogCount = 0
 
+#parentDir to file graph
+parentDirToFileGraph = RequestGraph()
+
+
 
 class timezone(datetime.tzinfo):
     def __init__(self, name="+0000"):
@@ -542,11 +546,14 @@ def processEntryLogHashTable(logHashTable,key,\
             fileChild = None
             stateParent = None
             stateChild = None
-            sequence = Sequence(sequenceId)
+            sequence = Sequence(sequenceId+"_1")
             fileSequence = Sequence(fileSequenceId)
 
         ORG.append(fileType,fileName)
-    
+        
+        #append the parentdir->file graph
+        parentDirToFileGraph.append(subDir,fileName)
+
         if parent is None:
             parent = subDir
         else:
@@ -992,9 +999,17 @@ TotalNumberAttacker =TotalNumberUser
 outStats = [attackerParameters,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
          totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph,\
-         fileSequences,fileRequestGraph,SRG,ORG]
+         fileSequences,fileRequestGraph,SRG,ORG,parentDirToFileGraph]
 pickle.dump(outStats, open(outStatsFname,"wb"))
 #fileRequestGraph.cshow()
+"""
+print "################show parentDirToFileGraph starts################"
+parentDirToFileGraph.show() 
+parentDirToFileGraph.calculateEdgeTransitionalProb() 
+parentDirToFileGraph.writeSTDToFile("../testexperiment/tempSTD.out") 
+parentDirToFileGraph.writeToFile("../testexperiment/tempRG.out") 
+print "################show parentDirToFileGraph Ends################"
+"""
 """
 print "################show SRG starts################"
 SRG.show()
