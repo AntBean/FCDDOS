@@ -636,7 +636,7 @@ class RequestGraph:
     def isChildTransProbsRoughlyEqual(self,node):
         isChidlTPREqual = False
         if self.requestGraph.has_key(node) == True:
-            if (self.getNodeSTD(node)/self.getNodeMean(node))*100 < 10.0:
+            if (self.getNodeSTD(node)/self.getNodeMean(node))*100 < 5.0:
                 isChidlTPREqual = True
         return isChidlTPREqual
 
