@@ -46,6 +46,9 @@ except:
     # happend when the outfile is specified incorrectly 
     # or not specified at all
     outputStream = sys.stdout
+#write header to the output file
+outputStream.write(seqProbLines[0])
+    
 outputLines = []
 for misClsficResLine in misClsficResLines:
     if args.target in misClsficResLine:

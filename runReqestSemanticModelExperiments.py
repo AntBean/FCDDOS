@@ -15,7 +15,7 @@ WRITE_ATTACKER_LOGS = False
 
 # parse commandline arguments
 def parseCmdArgs():
-    desc = "runExperiment for request dynamics model"
+    desc = "runExperiment for request semantic model"
     parser = argparse.ArgumentParser(description=desc,
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                 add_help=False)

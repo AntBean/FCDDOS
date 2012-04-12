@@ -22,6 +22,7 @@ import os, sys,math
 import re
 import pickle
 from FileCategory import fileCategoryNames,fileCategories
+import UserAgentType as UAT
 
 indnt = "  "
 indntlevel = 0
@@ -37,6 +38,8 @@ attackerParameters = [[None,None],[None,None],[None,None],[None,None],
 invalidNPraCount = 0
 invalidFormatCount = 0;
 totalLogCount = 0
+robotCount = 0
+embeddedObjectCount = 0
 
 #parentDir to file graph
 parentDirToFileGraph = RequestGraph()
@@ -94,6 +97,10 @@ class ApacheLogParser:
         TimeZone = t[0][1]
         timestamp = parse_apache_date(TimeStamp,TimeZone)
         t["timestamp"]= timestamp
+
+    def userAgentParser(self,s,l,t):
+        userAgent = str(t[0].strip('"'))
+        t["userAgent"] = userAgent
     
     # intilize the ApacheLogParse with the parsing format
     def prepareParser(self):
@@ -116,12 +123,19 @@ class ApacheLogParser:
                         setResultsName("auth") +\
                     (serverDateTime | "-" ).\
                         setParseAction(self.timestampParser) +\
-                    dblQuotedString.setResultsName("cmd").\
-                        setParseAction(self.httpCmdParser) +\
+                    dblQuotedString.\
+                        setResultsName("cmd").\
+                        setParseAction(self.httpCmdParser)+\
                     (integer | "-").\
                         setResultsName("statusCode")+\
                     (integer | "-").\
-                        setResultsName("numBytesSent"))
+                        setResultsName("numBytesSent")+\
+                    (dblQuotedString | "-").\
+                        setResultsName("redirectURL")+\
+                    (dblQuotedString | "-").\
+                        setResultsName("userAgent").\
+                        setParseAction(self.userAgentParser)
+                    )
         return logLine
 
     def parseLogLine(self,line):
@@ -460,6 +474,8 @@ def processEntryLogHashTable(logHashTable,key,\
     # R is total number of request for this user in one session
     R = 0
     #print key
+    requestIndex = 0
+    global embeddedObjectCount
     for request in logHashTable[key]:
         requestURI = request[1]
         """
@@ -482,7 +498,23 @@ def processEntryLogHashTable(logHashTable,key,\
         # get file type
         fileType = getFileType(requestURI)
         
-        
+        embeddedObject = False
+        # check if the request is human-generated or not
+        if prevReqTs != None:
+            # by verifying the requestURI
+            diffTs = request[0] - prevReqTs
+            if diffTs.total_seconds() < 2:
+                print diffTs.total_seconds()
+                embeddedObject = True
+                
+        #if not iSHumanGenerated(parsedLogLine.requestURI) and (embeddedObject):
+        if (embeddedObject):
+            # remove the embedded object request from logtable
+            del logHashTable[key][requestIndex]
+            embeddedObjectCount += 1
+            continue
+        requestIndex += 1
+
 
         #if outputStatus is 1:
         #   print "request size =" , sys.getsizeof(request)
@@ -786,7 +818,9 @@ except:
     print "Error Opening output file: ",outFname
     exit(0)
     
-    
+#create useragenttype object
+userAgentTypeObject = UAT.UserAgentType()
+
 # open a temporary file for keeping data
 #tempStream = open("tempfile","w")
 tempStream = os.tmpfile()
@@ -876,29 +910,22 @@ for line in f:
             fileExtnAccessFrequencyTable[fileEAFTKey] = 1 
         else:
             fileExtnAccessFrequencyTable[fileEAFTKey]+=1
-            
-        # check if the request is human-generated or not
-        # by verifying the requestURI
-        if prevRequestTs is None:
-            prevRequestTs = parsedLogLine.timestamp
-        else:
-            diffTs = parsedLogLine.timestamp - prevRequestTs
-            if diffTs.total_seconds() < 3:
-                embeddedObject = True
 
-            
-        if iSHumanGenerated(parsedLogLine.requestURI) or (not embeddedObject):
-            # we only add the human generated to the hashtable
-            #logHashTable[parsedLogLine.ipAddr] = parsedLogLine
-            if parsedLogLine.ipAddr not in logHashTable:
-                logHashTable[parsedLogLine.ipAddr] = []
-            entry = [parsedLogLine.timestamp,parsedLogLine.requestURI]
-            #print "entry ",entry
-            logHashTable[parsedLogLine.ipAddr].append(entry)
+        #check if the user agent is browser type(not robot,crawler etc)
+        userAgent = parsedLogLine.userAgent
+        if not userAgentTypeObject.isBrowser(userAgent):
+            robotCount +=1
+            continue
+        #logHashTable[parsedLogLine.ipAddr] = parsedLogLine
+        if parsedLogLine.ipAddr not in logHashTable:
+            logHashTable[parsedLogLine.ipAddr] = []
+        entry = [parsedLogLine.timestamp,parsedLogLine.requestURI]
+        #print "entry ",entry
+        logHashTable[parsedLogLine.ipAddr].append(entry)
         
-        else:
-            #print "requestURI", parsedLogLine.requestURI
-            invalidFormatCount+=1
+                  
+                
+            
             
     except pyparsing.ParseException, err:
         pass
@@ -992,9 +1019,10 @@ print "TotalNumberReq: ",TotalNumberReq
 print "total log count",totalLogCount
 print "invalid format = ", invalidFormatCount
 print "invalid NPra = ", invalidNPraCount
+print "robotCount",robotCount
+print "embeddedObjectCount",embeddedObjectCount
 print "total Invalid =",invalidFormatCount+invalidNPraCount
 print "attackerParameters",attackerParameters
-
 TotalNumberAttacker =TotalNumberUser 
 outStats = [attackerParameters,TotalNumberUser,\
          TotalNumberAttacker,TotalNumberReq,invalidFormatCount,invalidNPraCount,\
