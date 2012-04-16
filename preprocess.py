@@ -135,7 +135,6 @@ def parseCmdArgs():
     args = parser.parse_args()
     return args
 
-
 #parse commandlist arguments    
 args = parseCmdArgs()
 outputStream = None
@@ -162,6 +161,7 @@ except:
     print "Apache Log File Open Error"
     exit(0)
 #with open(sys.argv[1]) as f:
+print "preprocessing: ",args.apache_log_file
 
 # get the file size
 f.seek(0,2)
