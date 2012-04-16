@@ -48,6 +48,9 @@ except:
 class UASException(Exception):
     pass
 
+class UASUserAgentNotGivenException(Exception):
+    pass
+
 class UASparser:
     
     ini_url  = 'http://user-agent-string.info/rpc/get_data.php?key=free&format=ini'

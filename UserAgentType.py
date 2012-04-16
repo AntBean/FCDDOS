@@ -6,11 +6,14 @@ USER_AGENT_BROWSER_TYPES = ['Browser','Mobile Browser','Wap Browser']
 USER_AGENT_REST_TYPES = ['Useragent Anonymizer','Robot','unknown','Other',
                       'Offline Browser','Email client','Library',
                       'Validator','Feed Reader','Multimedia Player']
+USER_AGENT_ROBOT = 'Robot'
 API_URL = "http://www.useragentstring.com/?"
 class UserAgentType:
     def __init__(self):
         self.uas_parser = UASparser('/home/natty/FCDDOS/UASparserCache') 
     def isBrowser(self,userAgent):
+        if not userAgent or userAgent == None:
+            return True
         if userAgent == '-':
             return True
         #print agentType
@@ -18,6 +21,16 @@ class UserAgentType:
         agentType = result["typ"]
         #print agentType,":::",userAgent,"\n"
         if agentType in USER_AGENT_BROWSER_TYPES:
+            return True
+        else:
+            return False
+    def isRobot(self,userAgent):
+        if not userAgent or userAgent == None:
+            return False
+        result = self.uas_parser.parse(str(userAgent))
+        agentType = result["typ"]
+        #print agentType,":::",userAgent,"\n"
+        if agentType == USER_AGENT_ROBOT:
             return True
         else:
             return False

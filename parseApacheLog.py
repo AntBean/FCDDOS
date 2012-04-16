@@ -129,12 +129,7 @@ class ApacheLogParser:
                     (integer | "-").\
                         setResultsName("statusCode")+\
                     (integer | "-").\
-                        setResultsName("numBytesSent")+\
-                    (dblQuotedString | "-").\
-                        setResultsName("redirectURL")+\
-                    (dblQuotedString | "-").\
-                        setResultsName("userAgent").\
-                        setParseAction(self.userAgentParser)
+                        setResultsName("numBytesSent")
                     )
         return logLine
 
@@ -911,11 +906,6 @@ for line in f:
         else:
             fileExtnAccessFrequencyTable[fileEAFTKey]+=1
 
-        #check if the user agent is browser type(not robot,crawler etc)
-        userAgent = parsedLogLine.userAgent
-        if not userAgentTypeObject.isBrowser(userAgent):
-            robotCount +=1
-            continue
         #logHashTable[parsedLogLine.ipAddr] = parsedLogLine
         if parsedLogLine.ipAddr not in logHashTable:
             logHashTable[parsedLogLine.ipAddr] = []
@@ -1019,7 +1009,6 @@ print "TotalNumberReq: ",TotalNumberReq
 print "total log count",totalLogCount
 print "invalid format = ", invalidFormatCount
 print "invalid NPra = ", invalidNPraCount
-print "robotCount",robotCount
 print "embeddedObjectCount",embeddedObjectCount
 print "total Invalid =",invalidFormatCount+invalidNPraCount
 print "attackerParameters",attackerParameters

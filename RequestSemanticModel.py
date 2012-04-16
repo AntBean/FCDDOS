@@ -5,10 +5,11 @@ from operator import itemgetter
 
 #global variables
 MAX_ATTACKER_SEQUENCE_LENGTH = 1000
-MIN_ATTACKER_SEQUENCE_LENGTH = 2
+MIN_ATTACKER_SEQUENCE_LENGTH = 3
 FIRST_ATTACKER_IP = "194.0.0.1"
 VALID_METHOD_NAMES = ["dir","file","combined1"]
 TOTAL_10MINUTE_ATTACK_REQUEST = 600000
+MINIMUM_TEST_SEQUENCE_LENGTH = 3
 
 """
 method to write sequeces classification to the text file for the threshold value
@@ -803,8 +804,11 @@ class RequestGraph:
                 curSeqLen += 1
                 curSeqProb += edgeTP
                 if (curSeqProb/float(curSeqLen)) < threshold:
-                    testResults[threshold] = [True,curSeqLen]
-                    break   
+                    #if curSeqLen is less than 3 then dont mark this as attacker 
+                    if curSeqLen >=MINIMUM_TEST_SEQUENCE_LENGTH:
+                        testResults[threshold] = [True,curSeqLen]
+                        break
+
         return testResults
     
     """
@@ -841,8 +845,10 @@ class RequestGraph:
                 curSeqProb += edgeTP
                 curSeqLen += 1
                 if (curSeqProb/float(curSeqLen)) < threshold:
-                    testResults[threshold] = [True,curSeqLen]
-                    break   
+                    #if curSeqLen is less than 3 then dont mark this as attacker 
+                    if curSeqLen >=MINIMUM_TEST_SEQUENCE_LENGTH:
+                        testResults[threshold] = [True,curSeqLen]
+                        break
         return testResults
     """
     method to custom show the request graph
