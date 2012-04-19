@@ -25,7 +25,9 @@ class UserAgentType:
         else:
             return False
     def isRobot(self,userAgent):
-        if not userAgent or userAgent == None:
+        if not userAgent or (userAgent == None):
+            return False
+        if userAgent == "-" or len(userAgent) ==0:
             return False
         result = self.uas_parser.parse(str(userAgent))
         agentType = result["typ"]
