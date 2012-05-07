@@ -53,6 +53,49 @@ def writeSeqClassificationToFile(sequences, fileName,threshold):
     print "#################writeSeqClassificationTofile Ended############"
 
 """
+method to write sequeces probabilities to the chart text file
+"""
+def writeSequencesProbToChartFile(sequences,fileName,isUser=True):
+    print "#################writeSeqProbToChartfile Started###############"
+    try:
+        seqProbOutStream = open(fileName,"w")
+    except:
+        print "Error Opening sequence prob output file: ",fileName
+
+    #first write header    
+    header = "Type,SequenceLength,EdgeCumProb\n"
+    seqProbOutStream.write(header)
+    
+    # intilize the progress bar
+    writeSeqProgBarEndStatus = len(sequences)
+    writeSeqProgBarStartStatus = 0
+    writeSeqProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+            maxval=writeSeqProgBarEndStatus).start()
+
+    for sequence in sequences:
+        requestIndex = 0
+        for request in sequence.getRequestSequence():
+            if requestIndex < 2:
+                requestIndex +=1
+                continue
+            edgeCumProb = str(sequence.getEdgeCumProb(requestIndex))
+            curSeqLen = str(requestIndex+1)
+            if isUser:
+                name = "User"
+            else:
+                name = "Attacker"
+            outString = name+","+curSeqLen+","+edgeCumProb+"\n"
+            seqProbOutStream.write(outString)
+            requestIndex +=1
+            
+        #update the progress bar
+        writeSeqProgBarStartStatus += 1
+        writeSeqProgBar.update(writeSeqProgBarStartStatus)
+ 
+
+    print "#################writeSeqProbToChartfile Ended###############"
+
+"""
 method to write sequeces probabilities to the text file
 """
 def writeSequencesProbToFile(sequences, fileName):

@@ -456,12 +456,31 @@ for parsed_log_file in args.parsed_log_files:
         fileAttackerSPLogFname = startTestLogFname+".fileAttackerSP.log"
         combined1UserSPLogFname = startTestLogFname+".combined1UserSP.log"
         combined1AttackerSPLogFname = startTestLogFname+".combined1AttackerSP.log"
-        
-        
 
+        dirUserSPChartLogFname = startTestLogFname+".dirUserSP.chart"
+        fileUserSPChartLogFname = startTestLogFname+".fileUserSP.chart"
+        combined1UserSPChartLogFname = startTestLogFname+".combined1UserSP.chart"
+        dirAttackerSPChartLogFname = startTestLogFname+".dirAttackerSP.chart"
+        fileAttackerSPChartLogFname = startTestLogFname+".fileAttackerSP.chart"
+        combined1AttackerSPChartLogFname = startTestLogFname+".combined1AttackerSP.chart"
+        
         writeSequencesProbToFile(dirTestSequences, dirUserSPLogFname)
         writeSequencesProbToFile(fileTestSequences, fileUserSPLogFname)
         writeSequencesProbToFile(combined1TestSequences, combined1UserSPLogFname)
+        
+        writeSequencesProbToChartFile(dirTestSequences,
+                dirUserSPChartLogFname,True)
+        writeSequencesProbToChartFile(fileTestSequences,
+                fileUserSPChartLogFname,True)
+        writeSequencesProbToChartFile(combined1TestSequences,
+                combined1UserSPChartLogFname,True)
+        writeSequencesProbToChartFile(dirTestAttackerSequences, 
+                dirAttackerSPChartLogFname,False)
+        writeSequencesProbToChartFile(fileTestAttackerSequences, 
+                fileAttackerSPChartLogFname,False)
+        writeSequencesProbToChartFile(combined1TestAttackerSequences, 
+                combined1AttackerSPChartLogFname,False)
+        
         if WRITE_ATTACKER_LOGS:
             writeSequencesProbToFile(dirTestAttackerSequences,\
                     dirAttackerSPLogFname)

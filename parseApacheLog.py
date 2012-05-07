@@ -427,7 +427,7 @@ def processEntryLogHashTable(logHashTable,key,\
                                 ):
     global invalidNPraCount
     numValidUsers = 0
-    
+    subSeqId = 0
     #following variables will be used in creation of request graph
     parent = None
     child = None
@@ -440,11 +440,12 @@ def processEntryLogHashTable(logHashTable,key,\
 
 
     #create sequence objets
-    sequenceId = key
+    sequenceId = key+"."+str(subSeqId)
     sequence = Sequence(sequenceId)
     
-    fileSequenceId = key
+    fileSequenceId = key+"."+str(subSeqId)
     fileSequence = Sequence(fileSequenceId)
+    #print "Creating Sequence Object:",sequenceId 
     
     #timestamp = parse_apache_date(logHashTable[key].timestamp.ts,\ 
                     #logHashTable[key].timestamp.tz)
@@ -499,7 +500,7 @@ def processEntryLogHashTable(logHashTable,key,\
             # by verifying the requestURI
             diffTs = request[0] - prevReqTs
             if diffTs.total_seconds() < 2:
-                print diffTs.total_seconds()
+                #print diffTs.total_seconds()
                 embeddedObject = True
                 
         #if not iSHumanGenerated(parsedLogLine.requestURI) and (embeddedObject):
@@ -573,8 +574,10 @@ def processEntryLogHashTable(logHashTable,key,\
             fileChild = None
             stateParent = None
             stateChild = None
-            sequence = Sequence(sequenceId+"_1")
-            fileSequence = Sequence(fileSequenceId)
+            subSeqId += 1
+            sequence = Sequence(key+"."+str(subSeqId))
+            fileSequence = Sequence(key+"."+str(subSeqId))
+            #print "Creating Sequence Object:",key+"."+str(subSeqId)
 
         ORG.append(fileType,fileName)
         
