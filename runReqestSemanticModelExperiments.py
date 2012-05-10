@@ -25,6 +25,8 @@ def parseCmdArgs():
             help="Unparsed Apache Log File")
     parser.add_argument("-p", "--parsed-log-files", default=None, nargs = '*',
             help="Unparsed Apache Log File")
+    parser.add_argument("-m", "--request-mapping", required=True,
+            help="request mapping pickle file")
     parser.add_argument("-o", "--outdir", default=None, required = True,
             help="Output Directory")
     parser.add_argument("-r", "--attacker-user-ratio", default=1,
@@ -35,6 +37,13 @@ def parseCmdArgs():
 
 #parse commandlist arguments    
 args = parseCmdArgs()
+requestMappingPickleStream = None
+try:
+    requestMappingPickleStream = open(args.request_mapping,"rb")
+except:
+    print "Error Opening pickle file: "+args.request_mapping
+    exit(0)
+reqMap = pickle.load(requestMappingPickleStream)
 
 outputDir = os.path.join(args.outdir,"requestSemanticModel")
 parsedDir = os.path.join(args.outdir,"parsed")
@@ -94,7 +103,8 @@ if args.unparsed_log_files:
                                         "_u")
         args.parsed_log_files.append(parsed_log_file)
         parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
-                            " -o "+parsedDir
+                              " -m "+args.request_mapping+\
+                              " -o "+parsedDir
         print "parsed out file: ",parsed_log_file
         print "Parse apache command: ", parseApacheCommand
         os.system(parseApacheCommand)
@@ -133,7 +143,7 @@ for parsed_log_file in args.parsed_log_files:
     dirThresholds=getThresholds(dirRequestGraph,dirTrainSequences)
     fileThresholds=getThresholds(fileRequestGraph,fileTrainSequences)
     combined1Thresholds=getThresholdsCombined1(dirRequestGraph,fileRequestGraph,
-            parentDirToFileGraph,combined1TrainSequences)
+            parentDirToFileGraph,combined1TrainSequences,reqMap)
     #print "dirThresholds",dirThresholds
     #print "fileThresholds",fileThresholds
     #print "combined1Thresholds",combined1Thresholds
@@ -152,10 +162,10 @@ for parsed_log_file in args.parsed_log_files:
     dirFileRequestGraphLogFname = outBaseFname+".dirFilemodel.log"
     dirFileRequestGraphSTDLogFname = outBaseFname+".dirFilemodelSTD.log"
     
-    dirRequestGraph.writeToFile(dirRequestGraphLogFname)
-    fileRequestGraph.writeToFile(fileRequestGraphLogFname)
-    parentDirToFileGraph.writeToFile(dirFileRequestGraphLogFname)
-    parentDirToFileGraph.writeSTDToFile(dirFileRequestGraphSTDLogFname)
+    dirRequestGraph.writeToFile(dirRequestGraphLogFname,reqMap,1)
+    fileRequestGraph.writeToFile(fileRequestGraphLogFname,reqMap,0)
+    parentDirToFileGraph.writeToFile(dirFileRequestGraphLogFname,reqMap,0)
+    parentDirToFileGraph.writeSTDToFile(dirFileRequestGraphSTDLogFname,reqMap,1)
 
     #add sheets to capture test results for this model
     wsDirSP = wbDirSP.add_sheet(trnSetId)
@@ -200,11 +210,19 @@ for parsed_log_file in args.parsed_log_files:
         TotalNumberAttacker = (TotalNumberAttacker * int(args.attacker_user_ratio))
         
         #create attacker sequences
+        """
         dirTestAttackerSequences = dirTestRequestGraph.getAttackerSequences(\
                 TotalNumberAttacker)
         #showSequences(dirAttackerSequences)
         fileTestAttackerSequences = fileTestRequestGraph.getAttackerSequences(\
                 TotalNumberAttacker)
+        #showSequences(fileAttackerSequences)
+        """
+        dirTestAttackerSequences = getAttackerSequences(TotalNumberAttacker,
+                reqMap,1)
+        #showSequences(dirAttackerSequences)
+        fileTestAttackerSequences = getAttackerSequences(TotalNumberAttacker,
+                reqMap,0)
         #showSequences(fileAttackerSequences)
         """
         create sequences for combined1 formula
@@ -278,13 +296,13 @@ for parsed_log_file in args.parsed_log_files:
             CalSPProgBarStartStatus += 1
         for combined1TestSequence in combined1TestSequences:
             combined1TestSequence.calculateSequenceProbCombined1(dirRequestGraph,\
-                    fileRequestGraph,parentDirToFileGraph)
+                    fileRequestGraph,parentDirToFileGraph,reqMap)
             CalSPProgBarStartStatus += 1
             #update the progress bar
             calSPProgBar.update(CalSPProgBarStartStatus)
         for combined1TestAttackerSequence in combined1TestAttackerSequences:
             combined1TestAttackerSequence.calculateSequenceProbCombined1(\
-                    dirRequestGraph,fileRequestGraph,parentDirToFileGraph)
+                    dirRequestGraph,fileRequestGraph,parentDirToFileGraph,reqMap)
             CalSPProgBarStartStatus += 1
             #update the progress bar
             calSPProgBar.update(CalSPProgBarStartStatus)
@@ -298,7 +316,7 @@ for parsed_log_file in args.parsed_log_files:
                 fileTestAttackerSequences,fileThresholds)
         combined1TestResults = testSequencesCombined1(dirRequestGraph,\
                 fileRequestGraph,parentDirToFileGraph,combined1TestSequences,\
-                combined1TestAttackerSequences,combined1Thresholds)
+                combined1TestAttackerSequences,combined1Thresholds,reqMap)
         """
         print "dirTestResults: "
         for tdict in dirTestResults:
@@ -464,9 +482,9 @@ for parsed_log_file in args.parsed_log_files:
         fileAttackerSPChartLogFname = startTestLogFname+".fileAttackerSP.chart"
         combined1AttackerSPChartLogFname = startTestLogFname+".combined1AttackerSP.chart"
         
-        writeSequencesProbToFile(dirTestSequences, dirUserSPLogFname)
-        writeSequencesProbToFile(fileTestSequences, fileUserSPLogFname)
-        writeSequencesProbToFile(combined1TestSequences, combined1UserSPLogFname)
+        writeSequencesProbToFile(dirTestSequences, dirUserSPLogFname,reqMap,1)
+        writeSequencesProbToFile(fileTestSequences, fileUserSPLogFname,reqMap,0)
+        writeSequencesProbToFile(combined1TestSequences, combined1UserSPLogFname,reqMap,0)
         
         writeSequencesProbToChartFile(dirTestSequences,
                 dirUserSPChartLogFname,True)
@@ -483,13 +501,13 @@ for parsed_log_file in args.parsed_log_files:
         
         if WRITE_ATTACKER_LOGS:
             writeSequencesProbToFile(dirTestAttackerSequences,\
-                    dirAttackerSPLogFname)
+                    dirAttackerSPLogFname,reqMap,1)
             #writeAttackerSequencesProbToFile(dirTestAttackerSequences, dirAttackerSPLogFname)
             writeSequencesProbToFile(fileTestAttackerSequences,\
-                    fileAttackerSPLogFname)
+                    fileAttackerSPLogFname,reqMap,0)
             #writeAttackerSequencesProbToFile(fileTestAttackerSequences, fileAttackerSPLogFname)
             writeSequencesProbToFile(combined1TestAttackerSequences,\
-                    combined1AttackerSPLogFname)
+                    combined1AttackerSPLogFname,reqMap,0)
         #writeAttackerSequencesProbToFile(combined1TestAttackerSequences,\
         #        combined1AttackerSPLogFname)
         

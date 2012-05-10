@@ -98,7 +98,7 @@ def writeSequencesProbToChartFile(sequences,fileName,isUser=True):
 """
 method to write sequeces probabilities to the text file
 """
-def writeSequencesProbToFile(sequences, fileName):
+def writeSequencesProbToFile(sequences, fileName,reqMap,seqType=0):
     print "#################writeSeqProbTofile Started###############"
     space = " "
     colWidth = 16
@@ -137,7 +137,10 @@ def writeSequencesProbToFile(sequences, fileName):
         #now write request for this sequence
         startPosition = (len(outString))*space
         requestIndex = 0
-        for request in sequence.getRequestSequence():
+        for requestInt in sequence.getRequestSequence():
+            request = reqMap.getFileStr(requestInt)
+            if seqType == 1:
+                request = reqMap.getDirStr(requestInt)
             edgeProb = str(sequence.getEdgeProb(requestIndex))
             edgeCumProb = str(sequence.getEdgeCumProb(requestIndex))
             requestOutString = startPosition+\
@@ -157,7 +160,7 @@ def writeSequencesProbToFile(sequences, fileName):
 """
 method to write attackersequeces probabilities to the text file
 """
-def writeAttackerSequencesProbToFile(sequences, fileName):
+def writeAttackerSequencesProbToFile(sequences, fileName,reqMap,seqType=0):
     space = " "
     colWidth = 16
     MAX_ATTACKER_SEQUENCES = 50
@@ -211,7 +214,10 @@ def writeAttackerSequencesProbToFile(sequences, fileName):
         seqProbOutStream.write(outString)
         #now write request for this sequence
         startPosition = (len(outString)+4)*space
-        for request in sequence.getRequestSequence():
+        for requestInt in sequence.getRequestSequence():
+            request = reqMap.getFileStr(requestInt)
+            if seqType == 1:
+                request = reqMap.getDirStr(requestInt)
             requestOutString = startPosition+str(request)+"\n"
             seqProbOutStream.write(requestOutString)
 
@@ -252,11 +258,11 @@ def getThresholds(requestGraph,sequences):
 method to calculate threshold for combined1 forumula
 """
 def getThresholdsCombined1(dirRequestGraph,fileRequestGraph,
-        parentDirToFileGraph,sequences):
+        parentDirToFileGraph,sequences,reqMap):
     seqProb = []
     for seq in sequences:
         seq.calculateSequenceProbCombined1(dirRequestGraph, fileRequestGraph,
-               parentDirToFileGraph)
+               parentDirToFileGraph,reqMap)
         seqProb.append(round(seq.getSequenceProb(),2))
     return calculateThresholds(seqProb)
 
@@ -333,7 +339,7 @@ def testSequences(requestGraph,userSequences,attackerSequences,thresholds):
 method to test user and attacker sequences using combined1
 """
 def testSequencesCombined1(dirRequestGraph,fileRequestGraph,\
-        parentDirToFileGraph,userSequences,attackerSequences,thresholds):
+        parentDirToFileGraph,userSequences,attackerSequences,thresholds,reqMap):
     # intilize the progress bar
     print "#################testSequencesCombined1 Started#############"
     testSeqProgBarEndStatus = len(userSequences)+len(attackerSequences)
@@ -342,13 +348,13 @@ def testSequencesCombined1(dirRequestGraph,fileRequestGraph,\
             maxval=testSeqProgBarEndStatus).start()
     for seq in userSequences:
         seq.testSequenceCombined1(dirRequestGraph,fileRequestGraph,\
-                parentDirToFileGraph,thresholds)
+                parentDirToFileGraph,thresholds,reqMap)
         #update the progress bar
         testSeqProgBarStartStatus += 1
         testSeqProgBar.update(testSeqProgBarStartStatus)
     for seq in attackerSequences:
         seq.testSequenceCombined1(dirRequestGraph,fileRequestGraph,\
-                parentDirToFileGraph,thresholds)   
+                parentDirToFileGraph,thresholds,reqMap)   
         #update the progress bar
         testSeqProgBarStartStatus += 1
         testSeqProgBar.update(testSeqProgBarStartStatus)
@@ -491,7 +497,7 @@ class Sequence:
     sequences must contain file level information
     """
     def calculateSequenceProbCombined1(self,dirRequestGraph,fileRequestGraph,
-            parentDirToFileGraph):
+            parentDirToFileGraph,reqMap):
         requestSequence = self.getRequestSequence()
         """
         to save processing do this at end of this funtion
@@ -503,7 +509,8 @@ class Sequence:
         in request sequences
         """
         sequence = requestSequence
-        dirFirstNode = str(str(os.path.dirname(sequence[0])))
+        #dirFirstNode = str(str(os.path.dirname(sequence[0])))
+        dirFirstNode = reqMap.getDirIntFromFileInt(sequence[0])
         firstNodeVisitedProb = float(fileRequestGraph.getNodeVisitedProb(
                     sequence[0])) 
         if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirFirstNode):
@@ -516,10 +523,15 @@ class Sequence:
         for i in range(len(sequence)-1):
             parent = sequence[i]
             child = sequence[i+1]
+
             #get parent,child for dir request graph
+            """
             dirParent = str(str(os.path.dirname(parent)))
             dirChild = str(str(os.path.dirname(child)))
-            
+            """
+            dirParent = reqMap.getDirIntFromFileInt(parent)
+            dirChild = reqMap.getDirIntFromFileInt(child)
+
             edgeTP =fileRequestGraph.getEdgeTransitionalProb(parent,child)  
             dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(
                     dirParent,dirChild)
@@ -545,11 +557,11 @@ class Sequence:
     and combined1 formula
     """
     def testSequenceCombined1(self,dirRequestGraph,fileRequestGraph,
-            parentDirToFileGraph,thresholds):
+            parentDirToFileGraph,thresholds,reqMap):
         requestSequence = self.getRequestSequence()
         self.setTestResults(fileRequestGraph.testSequenceCombined1(
                     requestSequence,dirRequestGraph,parentDirToFileGraph,
-                    thresholds))
+                    thresholds,reqMap))
 
     """
        method to set test results
@@ -790,15 +802,19 @@ class RequestGraph:
     and from the dir request graph
     """
     def getSequenceProbCombined1(self,sequence,dirRequestGraph,
-            parentDirToFileGraph):
+            parentDirToFileGraph,reqMap):
         transitionalProbs = []
         dirEdgeTransitionalProbs = []
         for i in range(len(sequence)-1):
             parent = sequence[i]
             child = sequence[i+1]
             #get parent,child for dir request graph
+            """
             dirParent = str(str(os.path.dirname(parent)))
             dirChild = str(str(os.path.dirname(child)))
+            """
+            dirParent = reqMap.getDirIntFromFileInt(parent)
+            dirChild = reqMap.getDirIntFromFileInt(child)
             
             edgeTP =self.getEdgeTransitionalProb(parent,child)  
             dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(\
@@ -812,7 +828,8 @@ class RequestGraph:
                 sum(transitionalProbs))/\
                 (1+len(dirEdgeTransitionalProbs))
         """
-        dirFirstNode = str(str(os.path.dirname(sequence[0])))
+        #dirFirstNode = str(str(os.path.dirname(sequence[0])))
+        dirFirstNode = reqMap.getDirIntFromFileInt(sequence[0])
         firstNodeVisitedProb = float(self.getNodeVisitedProb(sequence[0]))
         if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirFirstNode):
             firstNodeVisitedProb = float(dirRequestGraph.getNodeVisitedProb(
@@ -858,14 +875,15 @@ class RequestGraph:
     method to test the sequence using thresholds and the combined1 formula
     """
     def testSequenceCombined1(self,sequence,dirRequestGraph,parentDirToFileGraph,
-            thresholds):
+            thresholds,reqMap):
         testResults = {}
         for threshold in thresholds:
             testResults[threshold] = [False,len(sequence)]
             """
             curSeqProb = self.firstPageVisitedProb
             """
-            dirFirstNode = str(str(os.path.dirname(sequence[0]))) 
+            #dirFirstNode = str(str(os.path.dirname(sequence[0])))
+            dirFirstNode = reqMap.getDirIntFromFileInt(sequence[0])
             curSeqProb = self.getNodeVisitedProb(sequence[0])
             if parentDirToFileGraph.isChildTransProbsRoughlyEqual(dirFirstNode):
                 curSeqProb = dirRequestGraph.getNodeVisitedProb(dirFirstNode)
@@ -874,9 +892,13 @@ class RequestGraph:
                 parent = sequence[i]
                 child = sequence[i+1]
                 #get parent,child for dir request graph
+                """
                 dirParent = str(str(os.path.dirname(parent)))
                 dirChild = str(str(os.path.dirname(child)))
-            
+                """
+                dirParent = reqMap.getDirIntFromFileInt(parent)
+                dirChild = reqMap.getDirIntFromFileInt(child)
+
                 fileEdgeTP =self.getEdgeTransitionalProb(parent,child)  
                 dirEdgeTP =dirRequestGraph.getEdgeTransitionalProb(\
                         dirParent,dirChild)  
@@ -983,7 +1005,12 @@ class RequestGraph:
     """
     method to write the request Graph to the file
     """
-    def writeToFile(self,fileName):
+
+    """
+    if type = 0 use file mapping
+       type =1 use dir mapping
+    """
+    def writeToFile(self,fileName,reqMap,graphType=0):
         space = " "
         colWidth = 48
         colWidth2 = 16
@@ -999,7 +1026,11 @@ class RequestGraph:
                     "EdgeCount"+colWidth2*space+\
                     "EdgeTransitionalProb\n"
         requestGraphOutStream.write(header)
-        for parent in self.requestGraph.keys():
+        for parentInt in self.requestGraph.keys():
+            parent = reqMap.getFileStr(parentInt)
+            if graphType == 1:
+                parent = reqMap.getDirStr(parentInt)
+
             parentFreq = str(self.getNodeVisitedProb(parent))
             parentOutString = str(parent)+\
                               ((len("ParentNode")-len(parent)+colWidth)*space)+\
@@ -1012,8 +1043,12 @@ class RequestGraph:
                     (len("ParentFreq")-len(parentFreq)+colWidth2)*space
                     )
 #                    (len("ParentFreq")-len(parentFreq)+colWidth2))*space)
-            for child in self.requestGraph[parent][0].keys():
-                edge = self.requestGraph[parent][0][child]
+            for childInt in self.requestGraph[parentInt][0].keys():
+                child = reqMap.getFileStr(childInt)
+                if graphType == 1:
+                    child = reqMap.getDirStr(childInt)
+
+                edge = self.requestGraph[parentInt][0][childInt]
                 edgeCount = str(edge.getEdgeCount())
                 edgeTransitionalProb = str(edge.getEdgeTransitionalProb())
 
@@ -1030,7 +1065,7 @@ class RequestGraph:
     """
     method to write stadard deviation of probs of chid to the file
     """
-    def writeSTDToFile(self,fileName):
+    def writeSTDToFile(self,fileName,reqMap,graphType=0):
         space = " "
         colWidth = 48
         colWidth2 = 16
@@ -1045,7 +1080,10 @@ class RequestGraph:
                     "ParentMean"+colWidth2*space+\
                     "isChildTPREqual"+colWidth2*space+"\n"
         requestGraphOutStream.write(header)
-        for parent in self.requestGraph.keys():
+        for parentInt in self.requestGraph.keys():
+            parent = reqMap.getFileStr(parentInt)
+            if graphType == 1:
+                parent = reqMap.getDirStr(parentInt)
             parentSTD = str(self.getNodeSTD(parent))
             parentMean = str(self.getNodeMean(parent))
             isChildTPREqual = str(self.isChildTransProbsRoughlyEqual(parent))
@@ -1106,4 +1144,69 @@ class Edge():
 
     def getEdgeCount(self):
         return self.edgeCount
+
+"""
+get Attacker Sequences using requests from mapping file
+seqType = 0 for fileSequence
+          1 for dirSequence
+"""
+def getAttackerSequences(numberOfAttackers,reqMap,seqType=0):
+    numberOfAttackers = 25000
+    print "\n"
+    print "#############getAttackerSequences using ReqMap Started############"
+    print "TotalNumberOfAttackers: ",numberOfAttackers
+    #intilized the ip address of the first attacker
+    currentAttackerIp = FIRST_ATTACKER_IP
+    prevAttackerIp = None
+    random.seed()
+    attackerSequences = []
+    #get the list of nodes equally weighted
+    equallyWeightedNodeList = reqMap.getAllFileInt()
+    if seqType == 1:
+        equallyWeightedNodeList = reqMap.getAllDirInt()
+
+    #get the number of attacker sequences to generate
+
+    #Note: due to a bug in xls sheet library we can
+    #have maximum 65535 sequences, but for safety we 
+    #will return only return 65000 sequences
+    numberOfAttackerSequences = numberOfAttackers
+    """
+    if numberOfAttackerSequences > 65000:
+        numberOfAttackerSequences = 65000
+    """      
+    # intilize the progress bar
+    readProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
+        maxval=numberOfAttackerSequences).start()
+
+    for i in range(numberOfAttackerSequences):
+        #now get the list of random Sequnce objects with random seq len
+        randomSequenceLength = random.randint(MIN_ATTACKER_SEQUENCE_LENGTH,
+                MAX_ATTACKER_SEQUENCE_LENGTH)
+
+        #randomSequenceLength = 1000
+
+        #sequence id
+        seqId = None
+        if prevAttackerIp is None:
+            seqId = FIRST_ATTACKER_IP                
+        else:
+            seqId = incrementIp(prevAttackerIp)
+
+        #create a empty sequence object
+        attackerSeq = Sequence(seqId)
+        #set prevAttackerIp
+        prevAttackerIp = seqId
+        for j in range(randomSequenceLength):
+            #now append random selected request
+            attackerSeq.append(random.choice(equallyWeightedNodeList))
+        #append the seq to the attackerSequences
+        attackerSequences.append(attackerSeq)
+            
+        #update the progress bar
+        readProgBar.update(i+1)
+        
+    print "#############getAttackerSequences using reqMap Ended##############"
+    print "\n"
+    return attackerSequences
 

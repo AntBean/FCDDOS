@@ -23,6 +23,7 @@ import re
 import pickle
 from FileCategory import fileCategoryNames,fileCategories
 import UserAgentType as UAT
+from mapper import RequestMapper as RequestMapper
 
 indnt = "  "
 indntlevel = 0
@@ -494,6 +495,10 @@ def processEntryLogHashTable(logHashTable,key,\
         # get file type
         fileType = getFileType(requestURI)
         
+        #get file and dir mappings
+        fileInt = reqMap.getFileInt(fileName)
+        dirInt = reqMap.getDirInt(subDir)
+
         embeddedObject = False
         # check if the request is human-generated or not
         if prevReqTs != None:
@@ -582,19 +587,24 @@ def processEntryLogHashTable(logHashTable,key,\
         ORG.append(fileType,fileName)
         
         #append the parentdir->file graph
-        parentDirToFileGraph.append(subDir,fileName)
+        #parentDirToFileGraph.append(subDir,fileName)
+        parentDirToFileGraph.append(dirInt,fileInt)
 
         if parent is None:
-            parent = subDir
+            #parent = subDir
+            parent = dirInt
         else:
-            child = subDir
+            #child = subDir
+            child = dirInt
             requestGraph.append(parent,child)
             parent = child
         
         if fileParent is None:
-            fileParent = fileName
+            #fileParent = fileName
+            fileParent = fileInt
         else:
-            fileChild = fileName
+            #fileChild = fileName
+            fileChild = fileInt
             fileRequestGraph.append(fileParent,fileChild)
             fileParent = fileChild
         
@@ -638,8 +648,10 @@ def processEntryLogHashTable(logHashTable,key,\
         prevReqTs = request[0]
         
         #add request to the sequences
-        sequence.append(subDir)
-        fileSequence.append(fileName)
+        #sequence.append(subDir)
+        #fileSequence.append(fileName)
+        sequence.append(dirInt)
+        fileSequence.append(fileInt)
    
 
     # since these are the last session of each type
@@ -783,6 +795,8 @@ def parseCmdArgs():
             help="Show this help message and exit")
     parser.add_argument("-i", "--apache-log-file", required=True,
             help="Apache Log File")
+    parser.add_argument("-m", "--request-mapping", required=True,
+            help="request mapping pickle file")
     parser.add_argument("-o", "--outdir", default=None, required = True,
             help="Output Directory")
     parser.add_argument("-s", "--searching-session", type=int, default=10,
@@ -815,6 +829,16 @@ try:
 except:
     print "Error Opening output file: ",outFname
     exit(0)
+
+#open the mapping file    
+requestMappingPickleStream = None
+try:
+    requestMappingPickleStream = open(args.request_mapping,"rb")
+except:
+    print "Error Opening request mapping pickle file: ",args.request_mapping
+    exit(0)
+
+reqMap = pickle.load(requestMappingPickleStream)
     
 #create useragenttype object
 userAgentTypeObject = UAT.UserAgentType()
@@ -1021,7 +1045,20 @@ outStats = [attackerParameters,TotalNumberUser,\
          totalLogCount,fileExtnAccessFrequencyTable,sequences,requestGraph,\
          fileSequences,fileRequestGraph,SRG,ORG,parentDirToFileGraph]
 pickle.dump(outStats, open(outStatsFname,"wb"))
-#fileRequestGraph.cshow()
+
+"""
+print "################show FileGraph starts################"
+fileRequestGraph.show()
+print "################show FileGraph Ends################"
+
+print "################show DirGraph starts################"
+requestGraph.show()
+print "################show DirGraph Ends################"
+
+print "################show parentDirToFileGraph starts################"
+parentDirToFileGraph.show()
+print "################show parentDirToFileGraph Ends################"
+"""
 """
 print "################show parentDirToFileGraph starts################"
 parentDirToFileGraph.show() 

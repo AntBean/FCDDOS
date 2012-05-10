@@ -2,20 +2,26 @@ export CLASSPATH=/home/natty/weka/weka.jar:$CLASSPATH
 
 
 :<<1supercalifragilisticexpialidocious
-time python runAggressiveAttackerExperiment.py -u /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI1 /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI2 /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI3 -o /media/storage/Experiments/DynamicModel/RF/ISI_300KReq/ -r 100 -t 100
+time python runAggressiveAttackerExperiment.py -u /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI1 /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI2 /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI3 -o /media/storage/Experiments/DynamicModel/MA/ISI_300KReq/ -r 100 -t 100
 
 
-time python runAggressiveAttackerExperiment.py -u /media/storage/Experiments/DataSets/filtered/ISI_500KReq/ISI1 /media/storage/Experiments/DataSets/filtered/ISI_500KReq/ISI2 -o /media/storage/Experiments/DynamicModel/RF/ISI_500KReq/ -r 100 -t 100
+time python runAggressiveAttackerExperiment.py -u /media/storage/Experiments/DataSets/filtered/ISI_500KReq/ISI1 /media/storage/Experiments/DataSets/filtered/ISI_500KReq/ISI2 -o /media/storage/Experiments/DynamicModel/MA/ISI_500KReq/ -r 100 -t 100
 
-time python runReqestSemanticModelExperiments.py -p /media/storage/Experiments/DynamicModel/RF/ISI_300KReq/ISI1_u /media/storage/Experiments/DynamicModel/RF/ISI_300KReq/ISI2_u /media/storage/Experiments/DynamicModel/RF/ISI_300KReq/ISI3_u -o /media/storage/Experiments/SemanticModel/RF/ISI_300KReq/
+time python runReqestSemanticModelExperiments.py -p /media/storage/Experiments/DynamicModel/MA/ISI_300KReq/ISI1_u /media/storage/Experiments/DynamicModel/MA/ISI_300KReq/ISI2_u /media/storage/Experiments/DynamicModel/MA/ISI_300KReq/ISI3_u -o /media/storage/Experiments/SemanticModel/MA/ISI_300KReq/
 
-time python runReqestSemanticModelExperiments.py -p /media/storage/Experiments/DynamicModel/RF/ISI_500KReq/ISI1_u -o /media/storage/Experiments/SemanticModel/RF/ISI_500KReq/
+time python runReqestSemanticModelExperiments.py -p /media/storage/Experiments/DynamicModel/MA/ISI_500KReq/ISI1_u -o /media/storage/Experiments/SemanticModel/MA/ISI_500KReq/
 
 1supercalifragilisticexpialidocious
 
-time python runReqestSemanticModelExperiments.py -u /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI1 /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI2 /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI3 -o /media/storage/Experiments/SemanticModel/RF/ISI_300KReq/
+time python runReqestSemanticModelExperiments.py -u /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI1 -m /media/storage/Experiments/DataSets/filtered/ISIMapping.pickle -o /media/storage/Experiments/SemanticModel/MA/ISI_300KReq/ISI1/
 
-time python runReqestSemanticModelExperiments.py -u /media/storage/Experiments/DataSets/filtered/ISI_500KReq/ISI1 -o /media/storage/Experiments/SemanticModel/RF/ISI_500KReq/
+time python runReqestSemanticModelExperiments.py -u /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI2 -m /media/storage/Experiments/DataSets/filtered/ISIMapping.pickle -o /media/storage/Experiments/SemanticModel/MA/ISI_300KReq/ISI2/
+
+time python runReqestSemanticModelExperiments.py -u /media/storage/Experiments/DataSets/filtered/ISI_300KReq/ISI3 -m /media/storage/Experiments/DataSets/filtered/ISIMapping.pickle -o /media/storage/Experiments/SemanticModel/MA/ISI_300KReq/ISI3/
+
+time python runReqestSemanticModelExperiments.py -u /media/storage/Experiments/DataSets/filtered/ISI_500KReq/ISI1  -m /media/storage/Experiments/DataSets/filtered/ISIMapping.pickle -o /media/storage/Experiments/SemanticModel/MA/ISI_500KReq/ISI1/
+
+time python runReqestSemanticModelExperiments.py -u /media/storage/Experiments/DataSets/filtered/ISI_500KReq/ISI2  -m /media/storage/Experiments/DataSets/filtered/ISIMapping.pickle -o /media/storage/Experiments/SemanticModel/MA/ISI_500KReq/ISI2/
 
 
 :<<supercalifragilisticexpialidocious

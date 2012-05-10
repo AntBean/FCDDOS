@@ -29,14 +29,8 @@ def parseCmdArgs():
 args = parseCmdArgs()
 
 alp = ApacheLogParser()
+requestMapper = RequestMapper()
 
-requestMappingStream = None
-try:
-    requestMappingStream = open(args.request_mapping,"wb")
-    requestMapper = RequestMapper()
-except IOError:
-    print "Error Opening pickle file: ",args.request_mapping
-    exit(0)
 
 for apache_log_file in args.apache_log_files:
     print "###########Mapping for "+apache_log_file+" Starts########"
@@ -78,7 +72,9 @@ for apache_log_file in args.apache_log_files:
 
 #create mappiing file
 pickle.dump(requestMapper, open(args.request_mapping,"wb"))
+"""
 #print the mapping
 requestMapper.showFileMap()
 requestMapper.showDirMap()
 requestMapper.showFileToDirMap()
+"""
