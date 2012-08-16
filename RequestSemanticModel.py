@@ -462,7 +462,7 @@ class Sequence:
     method to calculate the sequence probability for this sequence
     using request graph with edge transitional probabilities information
     """
-    def calculateSequenceProb(self,requestGraph):
+    def calculateSequenceProb(self,requestGraph,isUser=True):
         requestSequence = self.getRequestSequence()
         """
         to save processing do this at end of this funtion
@@ -479,17 +479,24 @@ class Sequence:
         edgeTP = firstNodeVisitedProb
         self.edgeProbs.append(edgeTP)
         edgeCumProb = float(sum(self.edgeProbs))/len(self.edgeProbs)
-        self.edgeCumProbs.append(edgeCumProb)
+        if isUser:
+            self.edgeCumProbs.append(edgeCumProb)
+        
         for i in range(len(sequence)-1):
             parent = sequence[i]
             child = sequence[i+1]
             edgeTP = requestGraph.getEdgeTransitionalProb(
                     parent,child)
+            
             self.edgeProbs.append(float(edgeTP))
             edgeCumProb = float(sum(self.edgeProbs))/len(self.edgeProbs)
-            self.edgeCumProbs.append(edgeCumProb)
+            if isUser:
+                self.edgeCumProbs.append(edgeCumProb)
 
         self.setSequenceProb((float(sum(self.edgeProbs)))/(len(self.edgeProbs)))
+        if not isUser:
+            del self.edgeProbs[:]
+            
 
     """
     method to calculate combined1 sequences probability using file level as 
@@ -497,7 +504,7 @@ class Sequence:
     sequences must contain file level information
     """
     def calculateSequenceProbCombined1(self,dirRequestGraph,fileRequestGraph,
-            parentDirToFileGraph,reqMap):
+            parentDirToFileGraph,reqMap,isUser=True):
         requestSequence = self.getRequestSequence()
         """
         to save processing do this at end of this funtion
@@ -519,7 +526,8 @@ class Sequence:
 
         self.edgeProbs.append(firstNodeVisitedProb)
         edgeCumProb = (float(sum(self.edgeProbs)))/(len(self.edgeProbs))
-        self.edgeCumProbs.append(edgeCumProb)
+        if isUser:
+            self.edgeCumProbs.append(edgeCumProb)
         for i in range(len(sequence)-1):
             parent = sequence[i]
             child = sequence[i+1]
@@ -544,6 +552,8 @@ class Sequence:
             self.edgeCumProbs.append(edgeCumProb)
 
         self.setSequenceProb((float(sum(self.edgeProbs)))/(len(self.edgeProbs)))
+        if not isUser:
+            del self.edgeProbs[:]
 
     """
     method to test sequence using threshold using specified method name
@@ -1151,7 +1161,7 @@ seqType = 0 for fileSequence
           1 for dirSequence
 """
 def getAttackerSequences(numberOfAttackers,reqMap,seqType=0):
-    numberOfAttackers = 25000
+    numberOfAttackers = 100000
     print "\n"
     print "#############getAttackerSequences using ReqMap Started############"
     print "TotalNumberOfAttackers: ",numberOfAttackers

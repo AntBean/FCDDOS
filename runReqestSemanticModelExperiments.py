@@ -277,35 +277,55 @@ for parsed_log_file in args.parsed_log_files:
         calSPProgBar = ProgressBar(widgets = [Bar(),Percentage()],\
             maxval=CalSPProgBarEndStatus).start()
         for dirTestSequence in dirTestSequences:
-            dirTestSequence.calculateSequenceProb(dirRequestGraph)
-            CalSPProgBarStartStatus += 1
-            #update the progress bar
-            calSPProgBar.update(CalSPProgBarStartStatus)
-        for dirTestAttackerSequence in dirTestAttackerSequences:
-            dirTestAttackerSequence.calculateSequenceProb(dirRequestGraph)
+            dirTestSequence.calculateSequenceProb(dirRequestGraph,True)
             CalSPProgBarStartStatus += 1
             #update the progress bar
             calSPProgBar.update(CalSPProgBarStartStatus)
         for fileTestSequence in fileTestSequences:
-            fileTestSequence.calculateSequenceProb(fileRequestGraph)
+            fileTestSequence.calculateSequenceProb(fileRequestGraph,True)
             CalSPProgBarStartStatus += 1
             #update the progress bar
             calSPProgBar.update(CalSPProgBarStartStatus)
-        for fileTestAttackerSequence in fileTestAttackerSequences:
-            fileTestAttackerSequence.calculateSequenceProb(fileRequestGraph)
-            CalSPProgBarStartStatus += 1
         for combined1TestSequence in combined1TestSequences:
             combined1TestSequence.calculateSequenceProbCombined1(dirRequestGraph,\
-                    fileRequestGraph,parentDirToFileGraph,reqMap)
+                    fileRequestGraph,parentDirToFileGraph,reqMap,True)
             CalSPProgBarStartStatus += 1
             #update the progress bar
             calSPProgBar.update(CalSPProgBarStartStatus)
-        for combined1TestAttackerSequence in combined1TestAttackerSequences:
-            combined1TestAttackerSequence.calculateSequenceProbCombined1(\
-                    dirRequestGraph,fileRequestGraph,parentDirToFileGraph,reqMap)
-            CalSPProgBarStartStatus += 1
-            #update the progress bar
-            calSPProgBar.update(CalSPProgBarStartStatus)
+
+        if WRITE_ATTACKER_LOGS:
+            for dirTestAttackerSequence in dirTestAttackerSequences:
+                dirTestAttackerSequence.calculateSequenceProb(dirRequestGraph,True)
+                CalSPProgBarStartStatus += 1
+                #update the progress bar
+                calSPProgBar.update(CalSPProgBarStartStatus)
+            for fileTestAttackerSequence in fileTestAttackerSequences:
+                fileTestAttackerSequence.calculateSequenceProb(fileRequestGraph,True)
+                #update the progress bar
+                CalSPProgBarStartStatus += 1
+            for combined1TestAttackerSequence in combined1TestAttackerSequences:
+                combined1TestAttackerSequence.calculateSequenceProbCombined1(\
+                        dirRequestGraph,fileRequestGraph,parentDirToFileGraph,reqMap,True)
+                CalSPProgBarStartStatus += 1
+                #update the progress bar
+                calSPProgBar.update(CalSPProgBarStartStatus)
+        else:
+            for dirTestAttackerSequence in dirTestAttackerSequences:
+                dirTestAttackerSequence.calculateSequenceProb(dirRequestGraph,False)
+                CalSPProgBarStartStatus += 1
+                #update the progress bar
+                calSPProgBar.update(CalSPProgBarStartStatus)
+            for fileTestAttackerSequence in fileTestAttackerSequences:
+                fileTestAttackerSequence.calculateSequenceProb(fileRequestGraph,False)
+                #update the progress bar
+                CalSPProgBarStartStatus += 1
+            for combined1TestAttackerSequence in combined1TestAttackerSequences:
+                combined1TestAttackerSequence.calculateSequenceProbCombined1(\
+                        dirRequestGraph,fileRequestGraph,parentDirToFileGraph,reqMap,False)
+                CalSPProgBarStartStatus += 1
+                #update the progress bar
+                calSPProgBar.update(CalSPProgBarStartStatus)
+
         print "#############Calculating Seq Prog  Ended###############"
         print "\n"
 
@@ -329,6 +349,7 @@ for parsed_log_file in args.parsed_log_files:
         #write user dir sequence probability data to the report file
         wsDirSPRow = headerRow+2
         wsDirSPCol = headerCol
+        """
         for dirTestSequence in dirTestSequences:
             wsDirSP.write(wsDirSPRow,wsDirSPCol,\
                     dirTestSequence.getId())
@@ -404,6 +425,7 @@ for parsed_log_file in args.parsed_log_files:
         #print "###########file sequence Probabilites starts###########"
         #showSequencesProb(fileTestSequences)
         #print "###########file sequence Probabilites Ends###########"
+        """
         #update header col
         headerCol +=7
         print "#############Writing data to report file Ended###############"
@@ -492,12 +514,13 @@ for parsed_log_file in args.parsed_log_files:
                 fileUserSPChartLogFname,True)
         writeSequencesProbToChartFile(combined1TestSequences,
                 combined1UserSPChartLogFname,True)
-        writeSequencesProbToChartFile(dirTestAttackerSequences, 
-                dirAttackerSPChartLogFname,False)
-        writeSequencesProbToChartFile(fileTestAttackerSequences, 
-                fileAttackerSPChartLogFname,False)
-        writeSequencesProbToChartFile(combined1TestAttackerSequences, 
-                combined1AttackerSPChartLogFname,False)
+        if WRITE_ATTACKER_LOGS:
+            writeSequencesProbToChartFile(dirTestAttackerSequences, 
+                    dirAttackerSPChartLogFname,False)
+            writeSequencesProbToChartFile(fileTestAttackerSequences, 
+                    fileAttackerSPChartLogFname,False)
+            writeSequencesProbToChartFile(combined1TestAttackerSequences, 
+                    combined1AttackerSPChartLogFname,False)
         
         if WRITE_ATTACKER_LOGS:
             writeSequencesProbToFile(dirTestAttackerSequences,\
@@ -552,12 +575,14 @@ for parsed_log_file in args.parsed_log_files:
 
 try:    
     #wb.save('report.xls')
+    """
     wbDirSP.save(os.path.join(outputDir,os.path.basename(\
                     'dirSeqProb.xls')))
     wbFileSP.save(os.path.join(outputDir,os.path.basename(\
                     'fileSeqProb.xls')))
     wbCombined1SP.save(os.path.join(outputDir,os.path.basename(\
                     'combined1SeqProb.xls')))
+    """
     wbTestRes.save(os.path.join(outputDir,os.path.basename(\
                     'testResult.xls')))
 except Exception as e:

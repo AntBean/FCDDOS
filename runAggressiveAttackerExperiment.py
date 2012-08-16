@@ -17,6 +17,8 @@ def parseCmdArgs():
             help="Unparsed Apache Log File")
     parser.add_argument("-p", "--parsed-log-files", default=None, nargs = '*',
             help="Unparsed Apache Log File")
+    parser.add_argument("-m", "--request-mapping", required=True,
+            help="request mapping pickle file")
     parser.add_argument("-o", "--outdir", default=None, required = True,
             help="Output Directory")
     parser.add_argument("-r", "--attacker-user-ratio", default=1,
@@ -62,6 +64,7 @@ if args.unparsed_log_files:
         default duaration for sesion types
         """
         parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
+                              " -m "+args.request_mapping+\
                             " -o "+args.outdir
         """
         parseApacheCommand = "python parseApacheLog.py -i "+unparsed_log_file+\
